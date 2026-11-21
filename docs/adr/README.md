@@ -23,3 +23,4 @@ Format: [MADR](https://adr.github.io/madr/). One decision per file, numbered seq
 | [0017](0017-demo-sites-sandbox.md) | Local demo-sites sandbox | Accepted |
 | [0018](0018-project-languages.md) | Project languages | Accepted |
 | [0019](0019-gdpr-and-observability.md) | GDPR data handling and observability | Accepted |
+| [0020](0020-object-storage-garage.md) | Object storage: Garage instead of MinIO | Accepted |

@@ -1,0 +1,32 @@
+# Seed phrases per module, used for topic centroids (classifier fallback) and
+# for YouTube/open-web discovery queries. Extend freely without touching code.
+
+m1_finfluencer:
+  topic_phrases:
+    - "kod promocyjny broker inwestycyjny"
+    - "link afiliacyjny konto maklerskie"
+    - "bonus za rejestracje u brokera"
+    - "współpraca reklamowa z firmą inwestycyjną"
+  discovery_queries:
+    - "kod promocyjny broker forex"
+    - "link w bio broker inwestycyjny"
+    - "#reklama broker"
+
+m2_risk_disclosure:
+  topic_phrases:
+    - "potencjalne zyski z inwestycji bez ryzyka"
+    - "gwarantowany zwrot z inwestycji"
+    - "zarabiaj na rynkach finansowych"
+  discovery_queries: []  # discovered via registry domains instead, see ADR-0004
+
+m3_shadow_advisory:
+  topic_phrases:
+    - "doradztwo inwestycyjne indywidualne"
+    - "zarzadzanie majatkiem family office"
+    - "sygnaly inwestycyjne portfel modelowy"
+    - "gwarantowany zysk z portfela"
+  discovery_queries:
+    - "doradztwo inwestycyjne prywatne"
+    - "family office Polska"
+    - "sygnaly inwestycyjne portfel modelowy"
+  warning_list_seed_url: "https://www.knf.gov.pl/dla_rynku/ostrzezenia_publiczne"

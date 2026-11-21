@@ -1,0 +1,11 @@
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+exclude = ["common/alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# FastAPI's Depends()-as-default-argument is the framework's documented
+# dependency-injection pattern, not the mutable-default-argument bug B008
+# targets.
+ignore = ["B008"]

@@ -1,0 +1,11 @@
+# Per-source schedule used by scheduler (Celery Beat). Each name must match a
+# row in the `sources` table (seeded by common/alembic/versions/0002_seed_data.py).
+sources:
+  - name: dataset
+    schedule_seconds: null  # run once at startup, not recurring
+  - name: demo-sites
+    schedule_seconds: 3600
+  - name: open-web
+    schedule_seconds: 900
+  - name: youtube
+    schedule_seconds: 1800

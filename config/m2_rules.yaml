@@ -1,0 +1,59 @@
+# M2 rule-set (ADR-0009): risk-disclosure compliance checks for marketing
+# material published directly by investment firms. Legal basis: MiFID II
+# art. 24(3), delegated regulation 2017/565 art. 44, ESMA CFD warning.
+#
+# NOTE (open question #1 in docs/CONCEPT.md): the exact checklist from the
+# task attachment was not available at authoring time. Weights and regexes
+# below are a best-effort reading of the public legal texts; once the
+# attachment arrives, only this file needs to change.
+
+criteria:
+  - id: risk_warning_present
+    weight: 0.25
+    detector: regex
+    legal_basis: "MiFID II art. 24(3); delegated reg. 2017/565 art. 44"
+    description: "A risk warning appears near any mention of profit/returns."
+    patterns:
+      - "ryzyk\\w* (utrat\\w*|strat\\w*)"
+      - "mo(ż|z)esz strac(i|y)ć"
+      - "inwestycj\\w* obarczon\\w* ryzykiem"
+
+  - id: risk_prominence
+    weight: 0.25
+    detector: visual
+    legal_basis: "ESMA guidance on fair, clear and not misleading communications"
+    description: "Risk warning is at least as visually prominent as profit claims (font size, contrast, position)."
+    min_font_ratio: 0.8  # risk warning font-size / profit claim font-size
+
+  - id: profit_risk_balance
+    weight: 0.15
+    detector: classifier
+    legal_basis: "MiFID II art. 24(3)"
+    description: "Proportion of profit-related content to risk-related content is not overwhelmingly skewed to profit."
+    max_profit_to_risk_ratio: 3.0
+
+  - id: past_performance_disclaimer
+    weight: 0.1
+    detector: regex
+    legal_basis: "delegated reg. 2017/565 art. 44(6)"
+    description: "Past performance is not a reliable indicator of future results."
+    patterns:
+      - "wyniki (osiagniete|osiągnięte) w przeszłości nie"
+      - "historyczne wyniki nie (gwarantuj|s(a|ą))"
+
+  - id: forecast_disclaimer
+    weight: 0.1
+    detector: regex
+    legal_basis: "delegated reg. 2017/565 art. 44(6)"
+    description: "Simulated/forecast performance is clearly labeled as such."
+    patterns:
+      - "symulacj\\w* (wynik|zwrot)"
+      - "prognoz\\w* nie (stanowi|gwarantuj)"
+
+  - id: cfd_esma_warning
+    weight: 0.15
+    detector: regex
+    legal_basis: "ESMA product intervention measures on CFDs"
+    description: "CFD-specific retail-loss-rate warning is present when CFDs are advertised."
+    patterns:
+      - "\\d{1,3}%\\s*rachunk\\w* (inwestor(ów|ow))? (detaliczny|detalicznych) trac\\w*"

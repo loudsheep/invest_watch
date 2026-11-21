@@ -1,0 +1,24 @@
+use_default_settings: true
+
+general:
+  instance_name: "InvestWatch SearXNG"
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  formats:
+    - html
+    - json
+
+server:
+  secret_key: "investwatch-dev-searxng-secret-change-me"
+  limiter: false
+  image_proxy: false
+
+engines:
+  - name: google
+    disabled: false
+  - name: bing
+    disabled: false
+  - name: duckduckgo
+    disabled: false

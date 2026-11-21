@@ -1,0 +1,236 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: investwatch
+      POSTGRES_USER: investwatch
+      POSTGRES_PASSWORD: investwatch-dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U investwatch"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # S3-compatible object storage for evidence (HTML, screenshots). MinIO's
+  # newer releases dropped the open-source web console / changed licensing,
+  # so we use Garage instead - same project also uses it, see garage/init.sh.
+  garage:
+    image: dxflrs/garage:v2.1.0
+    restart: unless-stopped
+    ports:
+      - "3900:3900"
+    volumes:
+      - ./garage/garage.toml:/etc/garage.toml:ro
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - "ollama pull ${LLM_MODEL:-gemma2:4b} && sleep 1000000"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    profiles:
+      - init
+
+  searxng:
+    image: searxng/searxng:latest
+    ports:
+      - "8888:8080"
+    volumes:
+      - ./infra/searxng-settings.yml:/etc/searxng/settings.yml:ro
+    environment:
+      - INSTANCE_NAME=InvestWatch-SearXNG
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  proxy-1:
+    image: tinyproxy:latest
+    ports:
+      - "8118:8118"
+    environment:
+      - TINYPROXY_TIMEOUT=600
+
+  proxy-2:
+    image: tinyproxy:latest
+    ports:
+      - "8119:8118"
+    environment:
+      - TINYPROXY_TIMEOUT=600
+
+  migrate:
+    build:
+      context: .
+      dockerfile: services/migrate/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
+    profiles:
+      - migrate
+
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      garage:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://garage:3900
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-GK0123456789abcdef01234567}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      S3_BUCKET: ${S3_BUCKET:-investwatch-evidence}
+      LLM_BASE_URL: http://ollama:11434
+      LLM_MODEL: ${LLM_MODEL:-gemma2:4b}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+      DEBUG: "false"
+    volumes:
+      - ./common:/app/common:ro
+      - ./config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  scraper-worker:
+    build:
+      context: .
+      dockerfile: services/scraper/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      garage:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://garage:3900
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-GK0123456789abcdef01234567}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      S3_BUCKET: ${S3_BUCKET:-investwatch-evidence}
+      PROXY_URLS: ${PROXY_URLS:-}
+      SEARXNG_URL: http://searxng:8080
+      DEBUG: "false"
+    volumes:
+      - ./common:/app/common:ro
+      - ./config:/app/config:ro
+      - ./data:/app/data:ro
+
+  ai-worker:
+    build:
+      context: .
+      dockerfile: services/ai/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
+      REDIS_URL: redis://redis:6379
+      LLM_BASE_URL: http://ollama:11434
+      LLM_MODEL: ${LLM_MODEL:-gemma2:4b}
+      DEBUG: "false"
+    volumes:
+      - ./common:/app/common:ro
+      - ./config:/app/config:ro
+      - ai_models:/app/models
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: services/scheduler/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
+      REDIS_URL: redis://redis:6379
+      DEBUG: "false"
+    volumes:
+      - ./common:/app/common:ro
+      - ./config:/app/config:ro
+      - ./data:/app/data:ro
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - api
+    volumes:
+      - ./frontend/src:/app/src:ro
+
+  demo-sites:
+    build:
+      context: ./demo-sites
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+
+volumes:
+  postgres_data:
+  garage_meta:
+  garage_data:
+  ollama_data:
+  ai_models:
+
+networks:
+  default:
+    name: investwatch

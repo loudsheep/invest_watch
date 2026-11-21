@@ -52,7 +52,7 @@ flowchart LR
     Q1 --> SCR[scraper-worker<br/>kolektory, Playwright, httpx]
     Sources --> SCR
     SCR -->|ProxyPool + UA rotation| WEB
-    SCR --> MINIO[(MinIO<br/>HTML, screenshoty)]
+    SCR --> GARAGE[(Garage<br/>HTML, screenshoty)]
     SCR --> PG[(Postgres + pgvector)]
     SCR --> Q2[(Redis<br/>queue)]
     Q2 --> AI[ai-worker<br/>preprocessing, embeddingi,<br/>klasyfikator, reguły, LLM]
@@ -76,7 +76,7 @@ flowchart LR
 | `migrate` | jednorazowy: migracje Alembic + seed rejestru i użytkowników |
 | `postgres` | metadane, treść, pgvector, findingi, audit log |
 | `redis` | kolejka, pub/sub, hot cache |
-| `minio` | object storage: surowy HTML, screenshoty, dowody |
+| `garage` | object storage: surowy HTML, screenshoty, dowody |
 | `ollama` (+ `ollama-init`) | inferencja LLM; init pobiera model |
 | `searxng` | self-hosted metasearch do discovery |
 | `proxy-1`, `proxy-2` | lokalne proxy (np. tinyproxy) do demonstracji rotacji |
@@ -142,7 +142,7 @@ Mechanizm: snapshot w repo (`data/`) jako seed + zadanie `registry-sync` w harmo
 ## 7. Model danych
 
 - `source` - konfiguracja źródła / kolektora.
-- `document` - URL, kanoniczny URL, platforma, autor, `published_at`, `fetched_at`, `content_hash`, oczyszczony tekst, klucze obiektów w MinIO (HTML, screenshot), embedding (pgvector).
+- `document` - URL, kanoniczny URL, platforma, autor, `published_at`, `fetched_at`, `content_hash`, oczyszczony tekst, klucze obiektów w Garage (HTML, screenshot), embedding (pgvector).
 - `entity`, `entity_alias` - rejestr: nazwa, typ, `authorized`, źródło, NIP/KRS/LEI, domeny.
 - `mention` - dokument <-> podmiot, rola: `advertised_firm`, `advertiser`, `publisher`, `offering_party`.
 - `finding` - **jeden typ dla M1/M2/M3**: `module`, `score`, `model_version`, `prompt_version`, `evidence` (cytaty z offsetami), `explanation`, `details` (JSONB, pola specyficzne dla modułu, np. wyniki kryteriów M2), `status`.
@@ -207,7 +207,7 @@ UI po polsku z plikami i18n (`pl.json`).
 
 1. Wizualna wyraźność ostrzeżenia o ryzyku (M2) - screenshot + computed styles.
 2. Linki afiliacyjne i kody promo jako dowód współpracy (M1).
-3. Zabezpieczanie dowodów (chain of custody): screenshot, HTML, SHA-256, timestamp w MinIO; wykrywanie zmian przy ponownym crawlu (np. usunięty disclaimer, skasowany post).
+3. Zabezpieczanie dowodów (chain of custody): screenshot, HTML, SHA-256, timestamp w Garage; wykrywanie zmian przy ponownym crawlu (np. usunięty disclaimer, skasowany post).
 4. Clone firms i lookalike domains (M3).
 5. Graf powiązań finfluencer - firma - domena - kod promo.
 6. "Skanuj URL teraz" z pipeline'em na żywo.
@@ -232,7 +232,7 @@ invest_watch/
 ├── config/            # YAML: reguły M2, taksonomie, seedy, źródła
 ├── data/              # snapshot rejestrów, próbki
 ├── demo-sites/        # fikcyjne strony do demo i testów E2E
-├── infra/             # docker-compose.yml, init SQL, konfig SearXNG / MinIO / proxy
+├── infra/             # docker-compose.yml, init SQL, konfig SearXNG / Garage / proxy
 ├── docs/              # CONCEPT.md, adr/, AI_PROCESS.md
 ├── AGENTS.md
 ├── .env.example

@@ -1,62 +1,254 @@
 # M2 rule-set (ADR-0009): risk-disclosure compliance checks for marketing
-# material published directly by investment firms. Legal basis: MiFID II
-# art. 24(3), delegated regulation 2017/565 art. 44, ESMA CFD warning.
+# material published directly by investment firms. Criteria 1-18 follow the
+# participant attachment "kryteria oceny informacji o ryzyku"; `ref` is the
+# criterion number from that attachment. Editing this file is enough to change
+# rules, weights and legal bases.
 #
-# NOTE (open question #1 in docs/CONCEPT.md): the exact checklist from the
-# task attachment was not available at authoring time. Weights and regexes
-# below are a best-effort reading of the public legal texts; once the
-# attachment arrives, only this file needs to change.
+# detector kinds (see services/ai/app/classifiers/m2.py):
+#   regex            passes when any pattern matches
+#   regex_violation  fails when any pattern matches
+#   classifier       profit vs risk mention balance
+#   visual           font-size ratio of risk warning vs profit claims
+#   contrast         WCAG contrast of risk warning text
+#   hidden           risk warning only in footer/legal/low-visibility spots
+#   one_click        risk disclosure only behind a link or collapsed layer
+#   responsive       risk warning legibility on tablet and phone viewports
+#   readability      sentence length and jargon in the risk warning
+#   dominance        historical results are the most prominent text
+#   comparison       comparison claims carry a source or stated assumptions
 
 criteria:
-  - id: risk_warning_present
-    weight: 0.25
+  - id: company_identification
+    ref: "1"
+    name: "Identyfikacja firmy"
+    weight: 0.08
     detector: regex
-    legal_basis: "MiFID II art. 24(3); delegated reg. 2017/565 art. 44"
-    description: "A risk warning appears near any mention of profit/returns."
+    legal_basis: "art. 44 ust. 2 lit. a rozporządzenia del. 2017/565"
+    description: "Materiał zawiera oficjalną nazwę firmy inwestycyjnej."
+    patterns:
+      - "(?-i:\\bS\\.A\\.|\\bsp\\. z o\\.o\\.|\\bLtd\\b|\\bLimited\\b|\\bplc\\b|\\bGmbH\\b|Dom Maklerski|Dom Inwestycyjny|\\bBank\\b)"
+
+  - id: ad_labeling
+    ref: "2"
+    name: "Oznaczenie reklamy"
+    weight: 0.08
+    detector: regex
+    legal_basis: "art. 24 ust. 3 MiFID II"
+    description: "Materiał promocyjny jest jednoznacznie oznaczony jako reklama."
+    patterns:
+      - "\\b(reklama|materiał\\w* (reklamow|marketingow|promocyjn)\\w*|treść sponsorowana|post sponsorowany|współpraca (płatna|reklamowa|komercyjna))\\b"
+      - "#(reklama|sponsorowane|współpraca|wspolpraca|ad)\\b"
+
+  - id: risk_warning_present
+    ref: "3"
+    name: "Informacja o ryzyku"
+    weight: 0.2
+    detector: regex
+    legal_basis: "art. 44 ust. 2 lit. b rozporządzenia del. 2017/565"
+    description: "Twierdzeniom o potencjalnych zyskach towarzyszy informacja o istotnym ryzyku."
     patterns:
       - "ryzyk\\w* (utrat\\w*|strat\\w*)"
       - "mo(ż|z)esz strac(i|y)ć"
       - "inwestycj\\w* obarczon\\w* ryzykiem"
+      - "wi(ą|a)ż\\w* się z (wysokim |dużym |znacznym )?ryzykiem"
+      - "(kapitał|środki)\\w* (jest|są) zagrożon\\w*"
 
   - id: risk_prominence
-    weight: 0.25
+    ref: "4"
+    name: "Rozmiar czcionki ryzyka"
+    weight: 0.15
     detector: visual
-    legal_basis: "ESMA guidance on fair, clear and not misleading communications"
-    description: "Risk warning is at least as visually prominent as profit claims (font size, contrast, position)."
+    legal_basis: "art. 44 ust. 2 lit. c rozporządzenia del. 2017/565"
+    description: "Czcionka informacji o ryzyku nie jest mniejsza od przeważającej czcionki materiału."
     min_font_ratio: 0.8  # risk warning font-size / profit claim font-size
 
-  - id: profit_risk_balance
-    weight: 0.15
-    detector: classifier
-    legal_basis: "MiFID II art. 24(3)"
-    description: "Proportion of profit-related content to risk-related content is not overwhelmingly skewed to profit."
-    max_profit_to_risk_ratio: 3.0
+  - id: risk_contrast
+    ref: "5"
+    name: "Ekspozycja i kontrast ryzyka"
+    weight: 0.1
+    detector: contrast
+    legal_basis: "art. 44 ust. 2 lit. c i e rozporządzenia del. 2017/565"
+    description: "Informacja o ryzyku ma wystarczający kontrast względem tła i nie jest przesłonięta."
+    min_contrast_ratio: 4.5
+
+  - id: risk_hidden
+    ref: "6"
+    name: "Zakrywanie / ukrywanie ryzyka"
+    weight: 0.1
+    detector: hidden
+    legal_basis: "art. 44 ust. 2 lit. e rozporządzenia del. 2017/565"
+    description: "Ryzyko nie jest ukryte w przypisach, stopce, sekcji Legal ani w miejscu o niskiej widoczności."
+
+  - id: risk_one_click
+    ref: "7"
+    name: "Dostępność za 1 kliknięciem"
+    weight: 0.08
+    detector: one_click
+    legal_basis: "art. 44 ust. 2 lit. b i e rozporządzenia del. 2017/565"
+    description: "Informacja o ryzyku jest widoczna od razu, bez rozwijania ani przechodzenia do innej warstwy."
+    violation_patterns:
+      - "(informacj\\w+ o ryzyku|ostrzeżeni\\w+|ryzyk\\w+)[^.\\n]{0,40}(kliknij|rozwiń|rozwin|czytaj więcej|zobacz więcej|dowiedz się więcej)"
+      - "(kliknij|rozwiń|rozwin|zobacz|czytaj)[^.\\n]{0,40}(informacj\\w+ o ryzyku|ostrzeżeni\\w+|regulamin\\w* ryzyk\\w*)"
+
+  - id: risk_responsive
+    ref: "8"
+    name: "Responsywność"
+    weight: 0.06
+    detector: responsive
+    legal_basis: "art. 44 ust. 2 lit. g rozporządzenia del. 2017/565"
+    description: "Na tablecie i telefonie ostrzeżenie o ryzyku nie jest ucinane ani skalowane poniżej czytelności."
+    min_font_px: 11
+
+  - id: risk_readability
+    ref: "9"
+    name: "Zrozumiałość dla grupy docelowej"
+    weight: 0.05
+    detector: readability
+    legal_basis: "art. 44 ust. 2 lit. d rozporządzenia del. 2017/565"
+    description: "Ostrzeżenie o ryzyku jest sformułowane zrozumiale dla przeciętnego odbiorcy."
+    max_words_per_sentence: 30
+    jargon:
+      - "dźwigni"
+      - "margin call"
+      - "depozyt zabezpieczający"
+      - "slippage"
+      - "pozycj\\w* krótk"
+      - "instrument\\w* pochodn"
+      - "ekspozycj"
+
+  - id: risk_language_consistency
+    ref: "10"
+    name: "Spójność językowa"
+    weight: 0.04
+    detector: regex_violation
+    legal_basis: "art. 44 ust. 2 lit. f rozporządzenia del. 2017/565"
+    description: "Informacja o ryzyku nie jest podana w innym języku niż główny przekaz."
+    applies_when: "[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]"
+    patterns:
+      - "\\b(capital at risk|risk warning|you (may|can) lose|losing money|past performance (is|does)|not a reliable indicator|trading involves risk)\\b"
+
+  - id: product_comparison
+    ref: "11"
+    name: "Porównania produktów / usług"
+    weight: 0.05
+    detector: comparison
+    legal_basis: "art. 44 ust. 3 rozporządzenia del. 2017/565"
+    description: "Porównania produktów lub usług wskazują źródło informacji i przyjęte założenia."
+    applies_when: "najlepsz\\w+|lepsz\\w+ (niż|od)|tańsz\\w+|niższ\\w+ (opłat|prowizj)\\w*|w porównaniu|numer 1|lider\\w*|bez konkurencji"
+    patterns:
+      - "(źródło|zrodlo|według|wedlug|na podstawie|dane (z|za)|założeni\\w+|stan na)"
+
+  - id: historical_period
+    ref: "12a"
+    name: "Wyniki historyczne - okres i zakres"
+    weight: 0.06
+    detector: regex
+    legal_basis: "art. 44 ust. 4 rozporządzenia del. 2017/565"
+    description: "Wyniki historyczne obejmują ostatnie 5 lat (pełne okresy 12-miesięczne) oraz wskazują okres referencyjny i źródło."
+    applies_when: "wynik\\w* (historyczn|osiągnięt|z ostatnich)|w przeszłości|stop\\w* zwrotu|osiągnęli|zwrot\\w* z ostatnich"
+    patterns:
+      - "(ostatnich|ostatnie) (5|pięciu) lat"
+      - "5-letni\\w*|pięcioletni\\w*"
+      - "okres referencyjn\\w*|pełn\\w+ (okres|lat)\\w* 12"
+
+  - id: historical_conditions
+    ref: "12b"
+    name: "Wyniki historyczne - warunki i waluta"
+    weight: 0.05
+    detector: regex
+    legal_basis: "art. 44 ust. 4 rozporządzenia del. 2017/565"
+    description: "Zawarto ostrzeżenie o wpływie kursów walutowych oraz wskazano wpływ prowizji, opłat i obciążeń na wyniki."
+    applies_when: "wynik\\w* (historyczn|osiągnięt|z ostatnich)|w przeszłości|stop\\w* zwrotu|osiągnęli|zwrot\\w* z ostatnich"
+    patterns:
+      - "kurs\\w* walut\\w*|ryzyko walutowe|wahani\\w+ kurs"
+      - "prowizj\\w+|opłat\\w+|obciążeni\\w+ (nie |)(są|został)"
+
+  - id: historical_dominance
+    ref: "13"
+    name: "Dominacja wyników historycznych"
+    weight: 0.05
+    detector: dominance
+    legal_basis: "art. 44 ust. 4 lit. a rozporządzenia del. 2017/565"
+    description: "Wyniki historyczne nie są najbardziej wyeksponowanym elementem informacji."
 
   - id: past_performance_disclaimer
-    weight: 0.1
+    ref: "14"
+    name: "Ostrzeżenie przy wynikach historycznych"
+    weight: 0.08
     detector: regex
-    legal_basis: "delegated reg. 2017/565 art. 44(6)"
-    description: "Past performance is not a reliable indicator of future results."
-    applies_when: "wynik\\w* (historyczn|osiągnięt|z ostatnich)|w przeszłości|stop\\w* zwrotu"
+    legal_basis: "art. 44 ust. 4 lit. d rozporządzenia del. 2017/565"
+    description: "Wyraźne zastrzeżenie, że wyniki historyczne nie stanowią wiarygodnego wskaźnika przyszłych wyników."
+    applies_when: "wynik\\w* (historyczn|osiągnięt|z ostatnich)|w przeszłości|stop\\w* zwrotu|osiągnęli|zwrot\\w* z ostatnich"
     patterns:
-      - "wyniki (osiagniete|osiągnięte) w przeszłości nie"
+      - "wyniki (osiagniete|osiągnięte|historyczne) (w przeszłości )?nie"
       - "historyczne wyniki nie (gwarantuj|s(a|ą))"
+      - "przeszł\\w+ wynik\\w* nie (gwarantuj|jest|są|stanowi)"
 
   - id: forecast_disclaimer
-    weight: 0.1
+    ref: "15"
+    name: "Prognozy przyszłych wyników"
+    weight: 0.08
     detector: regex
-    legal_basis: "delegated reg. 2017/565 art. 44(6)"
-    description: "Simulated/forecast performance is clearly labeled as such."
-    applies_when: "prognoz|symulacj|oczekiwan\\w* (zysk|zwrot)"
+    legal_basis: "art. 44 ust. 6 rozporządzenia del. 2017/565"
+    description: "Prognoza przyszłych wyników jest oznaczona i opatrzona ostrzeżeniem, że nie jest wiarygodnym wskaźnikiem. Wykrycie prognozy jest flagowane w raporcie."
+    applies_when: "prognoz|symulacj|oczekiwan\\w* (zysk|zwrot)|przewidywan\\w* (zysk|zwrot)"
     patterns:
-      - "symulacj\\w* (wynik|zwrot)"
-      - "prognoz\\w* nie (stanowi|gwarantuj)"
+      - "prognoz\\w* (nie|jest|są|stanowi)[^.]{0,40}(nie|wiarygodn|gwarantuj)"
+      - "symulacj\\w* (wynik|zwrot)\\w*[^.]{0,60}(nie|wiarygodn)"
+
+  - id: tax_information
+    ref: "16"
+    name: "Informacja podatkowa"
+    weight: 0.04
+    detector: regex
+    legal_basis: "art. 44 ust. 7 rozporządzenia del. 2017/565"
+    description: "Odwołanie do traktowania podatkowego zawiera informację o zależności od indywidualnej sytuacji klienta i możliwości zmian."
+    applies_when: "podat\\w+|\\bIKE\\b|\\bIKZE\\b|zwolnion\\w+ z (podatku|opodatkowania)|bez podatku|belk\\w+"
+    patterns:
+      - "zależ\\w+ od (indywidualnej )?sytuacji (podatkowej )?(klienta|inwestora)"
+      - "(przepis\\w+|traktowani\\w+) podatkow\\w+ (mo(ż|z)e|mog\\w+) (ulec|ulegać) zmian\\w*"
+
+  - id: regulator_approval
+    ref: "17"
+    name: "Zakaz sugerowania aprobaty organu nadzoru"
+    weight: 0.07
+    detector: regex_violation
+    legal_basis: "art. 44 ust. 8 rozporządzenia del. 2017/565"
+    description: "Odwołania do KNF nie sugerują zatwierdzenia ani aprobaty produktu lub usługi."
+    applies_when: "\\bKNF\\b|Komisj\\w+ Nadzoru Finansowego|\\bUKNF\\b"
+    patterns:
+      - "(zatwierdzon\\w+|zaakceptowan\\w+|autoryzowan\\w+|rekomendowan\\w+|certyfikowan\\w+|polecan\\w+|gwarantowan\\w+) przez (KNF|Komisj\\w+ Nadzoru|UKNF)"
+      - "(KNF|Komisj\\w+ Nadzoru Finansowego) (zatwierdz|zaakceptowa|rekomenduj|poleca|certyfikuj|gwarantuj)\\w*"
+      - "(licencj\\w+|zezwoleni\\w+|zgod\\w+) (KNF|Komisji Nadzoru)[^.]{0,40}(produkt|ofert|inwestycj)"
+
+  - id: supervision_as_safety
+    ref: "18"
+    name: "Nadzór jako argument bezpieczeństwa"
+    weight: 0.07
+    detector: regex_violation
+    legal_basis: "art. 44 ust. 8 rozporządzenia del. 2017/565"
+    description: "Odwołanie do organu nadzoru nie jest argumentem za bezpieczeństwem inwestycji."
+    applies_when: "\\bKNF\\b|Komisj\\w+ Nadzoru Finansowego|nadzór|nadzorowan\\w+|nadzorcz\\w+"
+    patterns:
+      - "(bezpieczn\\w+|pewn\\w+|gwarancj\\w+|bez ryzyka)[^.\\n]{0,80}(KNF|nadzór|nadzor\\w+|nadzorcz\\w+)"
+      - "(KNF|nadzór|nadzor\\w+|nadzorcz\\w+|wymog\\w+ nadzorcz\\w+)[^.\\n]{0,80}(bezpieczn\\w+|pewn\\w+|gwarancj\\w+|bez ryzyka)"
+
+  - id: profit_risk_balance
+    ref: "3"
+    name: "Proporcja zysków do ryzyka"
+    weight: 0.1
+    detector: classifier
+    legal_basis: "art. 24 ust. 3 MiFID II"
+    description: "Proporcja treści o zyskach do treści o ryzyku nie jest przesunięta wyraźnie na korzyść zysków."
+    max_profit_to_risk_ratio: 3.0
 
   - id: cfd_esma_warning
-    weight: 0.15
+    ref: "3"
+    name: "Ostrzeżenie ESMA dla CFD"
+    weight: 0.1
     detector: regex
-    legal_basis: "ESMA product intervention measures on CFDs"
-    description: "CFD-specific retail-loss-rate warning is present when CFDs are advertised."
+    legal_basis: "Środki interwencji produktowej ESMA dla CFD"
+    description: "Reklama CFD zawiera ostrzeżenie o odsetku rachunków inwestorów detalicznych tracących pieniądze."
     applies_when: "\\bcfd\\b|kontrakt\\w* różnic"
     patterns:
-      - "\\d{1,3}%\\s*rachunk\\w* (inwestor(ów|ow))? (detaliczny|detalicznych) trac\\w*"
+      - "\\d{1,3}(,\\d+)?\\s*%\\s*(rachunk\\w*|inwestor\\w*)[^.]{0,60}(trac\\w+|strat\\w+)"

@@ -1,8 +1,9 @@
 import json
+from pathlib import Path
 
 from investwatch_common.db import SessionLocal
 from investwatch_common.logging import get_logger
-from investwatch_common.models import Case, Document, Finding, Label, Mention
+from investwatch_common.models import Case, Document, Finding, Label, Mention, User
 from investwatch_common.redis_client import HIGH_RISK_CHANNEL, get_redis
 
 from .celery_app import celery_app
@@ -21,6 +22,7 @@ RELEVANCE_THRESHOLD = 0.5  # classifier score below which a document is off-topi
 HIGH_RISK_THRESHOLD = 0.8
 LLM_CACHE_PREFIX = "llm_cache:"
 LLM_CACHE_TTL_SECONDS = 86400 * 7
+_REFERENCE_LABELS_PATH = Path("/app/data/reference_labels.json")
 
 
 def _publish_scan_stage(
@@ -76,7 +78,10 @@ def _rule_signal_score(module: str, details: dict) -> float:
     if module == "m3":
         has_advisory = bool(details.get("advisory_offer_evidence"))
         has_lookalike = bool(details.get("lookalike_domain"))
-        return max(0.8 if has_lookalike else 0.0, 0.6 if has_advisory else 0.0)
+        age = details.get("domain_age_days")
+        young_domain = age is not None and age < 365
+        lookalike_score = 0.9 if has_lookalike and young_domain else 0.8
+        return max(lookalike_score if has_lookalike else 0.0, 0.6 if has_advisory else 0.0)
     return 0.0
 
 
@@ -95,6 +100,21 @@ def _create_mentions(db, doc: Document) -> None:
     for entity in find_entities_in_text(db, doc.content or ""):
         if entity.id not in known:
             db.add(Mention(document_id=doc.id, entity_id=entity.id, role="advertised_firm"))
+    db.commit()
+
+
+def _apply_reference_label(db, finding: Finding, doc: Document) -> None:
+    """Seeds ground truth for the demo-sites fixtures so calibration has labels from the first scan."""
+    if not _REFERENCE_LABELS_PATH.exists() or "demo-sites" not in doc.url:
+        return
+    reference = json.loads(_REFERENCE_LABELS_PATH.read_text(encoding="utf-8"))
+    slug = doc.url.split("?")[0].rstrip("/").rsplit("/", 1)[-1]
+    if slug not in reference:
+        return
+    admin = db.query(User).filter(User.role == "admin").first()
+    if admin is None:
+        return
+    db.add(Label(finding_id=finding.id, label=finding.module in reference[slug], created_by=admin.id))
     db.commit()
 
 
@@ -180,6 +200,7 @@ def process_document(document_id: int, scan_id: str | None = None):
             module_results[module].update(score=round(combined_score, 2), finding_id=finding.id)
 
             _aggregate_into_case(db, finding, doc)
+            _apply_reference_label(db, finding, doc)
 
             if combined_score >= HIGH_RISK_THRESHOLD:
                 get_redis().publish(

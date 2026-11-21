@@ -13,6 +13,7 @@ from investwatch_common.schemas import RawDocument
 from playwright.sync_api import sync_playwright
 
 from ..proxy_pool import build_default_pool
+from ..url_guard import BlockedUrlError, ensure_fetchable
 from ..user_agents import random_profile
 from .base import Collector
 
@@ -154,6 +155,12 @@ class OpenWebCollector(Collector):
             return True
 
     def fetch(self, candidate: str) -> RawDocument | None:
+        try:
+            ensure_fetchable(candidate)
+        except BlockedUrlError as exc:
+            logger.warning("fetch_blocked", url=candidate, reason=str(exc))
+            return None
+
         if not self._allowed_by_robots(candidate):
             logger.info("robots_disallowed", url=candidate)
             return None

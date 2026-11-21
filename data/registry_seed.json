@@ -88,6 +88,160 @@
       "domains": [
         "partner-wealth-demo.local"
       ]
+    },
+    {
+      "name": "Dom Maklerski BOŚ S.A.",
+      "aliases": [
+        "DM BOŚ",
+        "BOSSA"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "bossa.pl"
+      ]
+    },
+    {
+      "name": "Bank Pekao S.A. - Biuro Maklerskie",
+      "aliases": [
+        "Pekao Biuro Maklerskie",
+        "Pekao BM"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "pekao.com.pl"
+      ]
+    },
+    {
+      "name": "Powszechna Kasa Oszczędności Bank Polski S.A. - Biuro Maklerskie",
+      "aliases": [
+        "PKO Biuro Maklerskie",
+        "PKO BM"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "pkobp.pl"
+      ]
+    },
+    {
+      "name": "Trigon Dom Maklerski S.A.",
+      "aliases": [
+        "Trigon DM"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "trigon.pl"
+      ]
+    },
+    {
+      "name": "Noble Securities S.A.",
+      "aliases": [
+        "Noble Securities"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "noblesecurities.pl"
+      ]
+    },
+    {
+      "name": "Saxo Bank A/S",
+      "aliases": [
+        "Saxo Bank",
+        "Saxo"
+      ],
+      "type": "foreign_investment_firm",
+      "authorized": true,
+      "source": "esma",
+      "domains": [
+        "home.saxo",
+        "saxo.com"
+      ]
+    },
+    {
+      "name": "IG Europe GmbH",
+      "aliases": [
+        "IG Markets",
+        "IG"
+      ],
+      "type": "foreign_investment_firm",
+      "authorized": true,
+      "source": "esma",
+      "domains": [
+        "ig.com"
+      ]
+    },
+    {
+      "name": "Admiral Markets AS",
+      "aliases": [
+        "Admirals",
+        "Admiral Markets"
+      ],
+      "type": "foreign_investment_firm",
+      "authorized": true,
+      "source": "esma",
+      "domains": [
+        "admiralmarkets.com",
+        "admirals.com"
+      ]
+    },
+    {
+      "name": "Trading Point of Financial Instruments Ltd",
+      "aliases": [
+        "XM",
+        "XM Group"
+      ],
+      "type": "foreign_investment_firm",
+      "authorized": true,
+      "source": "esma",
+      "domains": [
+        "xm.com"
+      ]
+    },
+    {
+      "name": "Interactive Brokers Ireland Ltd",
+      "aliases": [
+        "Interactive Brokers",
+        "IBKR"
+      ],
+      "type": "foreign_investment_firm",
+      "authorized": true,
+      "source": "esma",
+      "domains": [
+        "interactivebrokers.ie"
+      ]
+    },
+    {
+      "name": "Revolut Securities Europe UAB",
+      "aliases": [
+        "Revolut Trading"
+      ],
+      "type": "foreign_investment_firm",
+      "authorized": true,
+      "source": "esma",
+      "domains": [
+        "revolut.com"
+      ]
+    },
+    {
+      "name": "Freedom Finance Europe Ltd",
+      "aliases": [
+        "Freedom24"
+      ],
+      "type": "foreign_investment_firm",
+      "authorized": true,
+      "source": "esma",
+      "domains": [
+        "freedom24.com"
+      ]
     }
   ]
 }

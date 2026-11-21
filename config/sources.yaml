@@ -9,3 +9,5 @@ sources:
     schedule_seconds: 900
   - name: youtube
     schedule_seconds: 1800
+  - name: tiktok
+    schedule_seconds: 3600

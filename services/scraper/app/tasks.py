@@ -1,3 +1,4 @@
+import re
 from datetime import UTC
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .celery_app import celery_app
 from .collectors import REGISTRY
+from .discovery import discovery_config
 from .normalize import content_hash, normalize_text
 from .storage import put_object
 
@@ -28,6 +30,38 @@ def _publish_scan_stage(
     get_redis().publish(SCAN_STAGE_CHANNEL, json.dumps(payload))
 
 
+RISK_SENTENCE = re.compile(r"ryzyk|strat|traci|nie gwarantuj|mo(ż|z)esz stracić", re.IGNORECASE)
+
+
+def _removed_risk_statements(previous_text: str, current_text: str) -> list[str]:
+    split = re.compile(r"(?<=[.!?])\s+|\n+")
+    current = current_text.lower()
+    return [
+        sentence.strip()
+        for sentence in split.split(previous_text)
+        if RISK_SENTENCE.search(sentence) and sentence.strip().lower() not in current
+    ]
+
+
+def _detect_change(db, raw: RawDocument, normalized: str) -> None:
+    """Flags a re-crawled URL whose risk statements disappeared since the last snapshot."""
+    previous = (
+        db.query(Document).filter(Document.url == raw.url).order_by(Document.fetched_at.desc()).first()
+    )
+    if previous is None or not previous.text_normalized:
+        return
+    removed = _removed_risk_statements(previous.text_normalized, normalized)
+    if removed:
+        raw.computed_styles = {
+            **(raw.computed_styles or {}),
+            "change_detection": {
+                "previous_document_id": previous.id,
+                "previous_fetched_at": previous.fetched_at.isoformat() if previous.fetched_at else None,
+                "removed_risk_statements": removed[:5],
+            },
+        }
+
+
 def _store_raw_document(db, source_id: int, raw: RawDocument) -> Document | None:
     normalized = normalize_text(raw.content)
     doc_hash = content_hash(normalized)
@@ -36,6 +70,8 @@ def _store_raw_document(db, source_id: int, raw: RawDocument) -> Document | None
     if existing:
         logger.info("duplicate_document_skipped", url=raw.url, hash=doc_hash)
         return None
+
+    _detect_change(db, raw, normalized)
 
     html_key = None
     screenshot_key = None
@@ -86,7 +122,7 @@ def run_collector(source_name: str):
             logger.error("no_collector_registered", type=source.type)
             return
 
-        collector = collector_cls(source.config or {})
+        collector = collector_cls({**discovery_config(db), **(source.config or {})})
         count = 0
         for candidate in collector.discover():
             raw = collector.fetch(candidate)

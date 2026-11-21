@@ -25,6 +25,73 @@ RISK_WARNING_SELECTOR_HINTS = [
 ]
 
 
+HISTORICAL_HINTS = ["wyniki historyczne", "wyniki osiągnięte", "stopa zwrotu", "osiągnęli", "zwrot z ostatnich"]
+
+VIEWPORTS = [("tablet", 768, 1024), ("telefon", 375, 812)]
+
+STYLE_EXTRACTION_SCRIPT = """
+([riskHints, profitHints, historicalHints]) => {
+    const parseAlpha = (c) => {
+        const m = c.match(/rgba?\\(([^)]+)\\)/);
+        if (!m) return 1;
+        const parts = m[1].split(/[,/ ]+/).filter(Boolean);
+        return parts.length > 3 ? parseFloat(parts[3]) : 1;
+    };
+    const effectiveBackground = (el) => {
+        for (let node = el; node; node = node.parentElement) {
+            const bg = window.getComputedStyle(node).backgroundColor;
+            if (parseAlpha(bg) > 0.05) return bg;
+        }
+        return 'rgb(255, 255, 255)';
+    };
+    const effectiveOpacity = (el) => {
+        let o = 1;
+        for (let node = el; node; node = node.parentElement) o *= parseFloat(window.getComputedStyle(node).opacity || '1');
+        return o;
+    };
+    const collect = (hints) => {
+        const results = [];
+        for (const el of document.querySelectorAll('body *')) {
+            const txt = (el.innerText || '').toLowerCase();
+            if (!txt || txt.length > 2000 || !hints.some(h => txt.includes(h))) continue;
+            if ([...el.children].some(c => hints.some(h => (c.innerText || '').toLowerCase().includes(h)))) continue;
+            const style = window.getComputedStyle(el);
+            results.push({
+                tag: el.tagName,
+                text: (el.innerText || '').trim().slice(0, 160),
+                fontSize: style.fontSize,
+                color: style.color,
+                backgroundColor: style.backgroundColor,
+                effectiveBackground: effectiveBackground(el),
+                opacity: effectiveOpacity(el),
+                inFooter: !!el.closest('footer, [class*=legal], [id*=legal], [class*=footnote], [class*=przypis], sup'),
+                clipped: el.scrollWidth > el.clientWidth + 1 && ['hidden', 'clip'].includes(style.overflowX) || style.textOverflow === 'ellipsis',
+                textLength: txt.length,
+            });
+        }
+        return results.slice(0, 10);
+    };
+    let maxFont = 0;
+    for (const el of document.querySelectorAll('body *')) {
+        const own = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
+        if (!own) continue;
+        maxFont = Math.max(maxFont, parseFloat(window.getComputedStyle(el).fontSize) || 0);
+    }
+    const riskLinks = [...document.querySelectorAll('a, button, summary')]
+        .map(a => (a.innerText || '').trim())
+        .filter(t => t && /ryzyk|ostrze/i.test(t))
+        .slice(0, 5);
+    return {
+        risk_warning_elements: collect(riskHints),
+        profit_claim_elements: collect(profitHints),
+        historical_elements: collect(historicalHints),
+        risk_links: riskLinks,
+        max_font_px: maxFont,
+    };
+}
+"""
+
+
 class OpenWebCollector(Collector):
     name = "open_web"
 
@@ -34,6 +101,7 @@ class OpenWebCollector(Collector):
         self.respect_robots = config.get("respect_robots", True)
 
     def discover(self) -> Iterator[str]:
+        yield from self.config.get("seed_urls", [])
         queries = self.config.get("queries", [])
         for query in queries:
             try:
@@ -83,6 +151,7 @@ class OpenWebCollector(Collector):
                 text = page.inner_text("body")
                 screenshot = page.screenshot(full_page=True)
                 computed_styles = self._extract_risk_warning_styles(page)
+                computed_styles["viewports"] = self._extract_viewport_styles(page)
                 author = page.evaluate("document.querySelector('meta[name=author]')?.content || null")
                 browser.close()
 
@@ -108,33 +177,24 @@ class OpenWebCollector(Collector):
 
     @staticmethod
     def _extract_risk_warning_styles(page) -> dict:
-        """Grabs font-size/color for the smallest elements that look like risk
-        disclaimers and for profit claims, so M2 can compare the two."""
-        script = """
-        ([riskHints, profitHints]) => {
-            const collect = (hints) => {
-                const results = [];
-                for (const el of document.querySelectorAll('body *')) {
-                    const txt = (el.innerText || '').toLowerCase();
-                    if (!txt || txt.length > 2000 || !hints.some(h => txt.includes(h))) continue;
-                    // keep leaf-most matches only
-                    if ([...el.children].some(c => hints.some(h => (c.innerText || '').toLowerCase().includes(h)))) continue;
-                    const style = window.getComputedStyle(el);
-                    results.push({
-                        tag: el.tagName,
-                        text: (el.innerText || '').trim().slice(0, 160),
-                        fontSize: style.fontSize,
-                        color: style.color,
-                        backgroundColor: style.backgroundColor,
-                        textLength: txt.length,
-                    });
-                }
-                return results.slice(0, 10);
-            };
-            return { risk_warning_elements: collect(riskHints), profit_claim_elements: collect(profitHints) };
-        }
-        """
+        """Collects risk-warning and profit-claim element styles (font, colors,
+        opacity, footer placement, clipping) plus risk links and historical-result
+        elements, so M2 can score size, contrast, visibility and dominance."""
         try:
-            return page.evaluate(script, [RISK_WARNING_SELECTOR_HINTS, PROFIT_CLAIM_HINTS])
+            return page.evaluate(
+                STYLE_EXTRACTION_SCRIPT, [RISK_WARNING_SELECTOR_HINTS, PROFIT_CLAIM_HINTS, HISTORICAL_HINTS]
+            )
         except Exception:
             return {}
+
+    def _extract_viewport_styles(self, page) -> dict:
+        viewports = {}
+        for name, width, height in VIEWPORTS:
+            try:
+                page.set_viewport_size({"width": width, "height": height})
+                page.wait_for_timeout(150)
+                data = self._extract_risk_warning_styles(page)
+                viewports[name] = {"risk_warning_elements": data.get("risk_warning_elements", [])}
+            except Exception:
+                continue
+        return viewports

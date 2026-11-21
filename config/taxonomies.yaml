@@ -20,6 +20,8 @@ m1_finfluencer:
     - "link afiliacyjny konto maklerskie"
     - "bonus za rejestracje u brokera"
     - "współpraca reklamowa z firmą inwestycyjną"
+  seed_channels: []  # YouTube channel URLs of known finfluencers
+  seed_profiles: []  # public TikTok profile URLs, e.g. https://www.tiktok.com/@name
   discovery_queries:
     - "kod promocyjny broker forex"
     - "link w bio broker inwestycyjny"

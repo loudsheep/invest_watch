@@ -1,6 +1,5 @@
 """YouTube collector via yt-dlp: pulls descriptions and transcripts without
-needing cookies or a logged-in session, so it's resilient to the same blocking
-that rules out TikTok/Instagram for day-one scope.
+needing cookies or a logged-in session. TikTok shares the same yt-dlp pipeline.
 """
 from collections.abc import Iterator
 
@@ -12,6 +11,7 @@ from .base import Collector
 
 class YouTubeCollector(Collector):
     name = "youtube"
+    platform = "youtube"
 
     def discover(self) -> Iterator[str]:
         search_terms = self.config.get("search_terms", [])
@@ -57,11 +57,30 @@ class YouTubeCollector(Collector):
         content = "\n".join(filter(None, [info.get("description", ""), transcript]))
 
         return RawDocument(
-            source_name="youtube",
+            source_name=self.name,
             url=candidate,
-            platform="youtube",
+            platform=self.platform,
             author=info.get("uploader"),
             title=info.get("title"),
             content=content,
             extra={"video_id": info.get("id"), "channel_id": info.get("channel_id")},
         )
+
+
+class TikTokCollector(YouTubeCollector):
+    """Public TikTok profiles and videos through yt-dlp's TikTok extractor."""
+
+    name = "tiktok"
+    platform = "tiktok"
+
+    def discover(self) -> Iterator[str]:
+        ydl_opts = {"quiet": True, "extract_flat": True, "skip_download": True}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            for profile_url in self.config.get("seed_profiles", []):
+                try:
+                    result = ydl.extract_info(profile_url, download=False)
+                    for entry in (result.get("entries") or [])[:10]:
+                        if entry.get("url"):
+                            yield entry["url"]
+                except Exception:
+                    continue

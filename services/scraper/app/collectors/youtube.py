@@ -10,6 +10,8 @@ import yt_dlp
 from investwatch_common.logging import get_logger
 from investwatch_common.schemas import RawDocument
 
+from ..proxy_pool import build_default_pool
+from ..user_agents import random_profile
 from .base import Collector
 
 logger = get_logger(__name__)
@@ -50,13 +52,13 @@ def _caption_track(info: dict) -> dict | None:
     return None
 
 
-def fetch_transcript(info: dict) -> str:
+def fetch_transcript(info: dict, headers: dict | None = None, proxy: str | None = None) -> str:
     """Caption text (manual captions first, then automatic) in Polish or English; empty when none."""
     track = _caption_track(info)
     if track is None:
         return ""
     try:
-        response = httpx.get(track["url"], timeout=20, follow_redirects=True)
+        response = httpx.get(track["url"], headers=headers, proxy=proxy, timeout=20, follow_redirects=True)
         response.raise_for_status()
         parser = parse_json3 if track["ext"] == "json3" else parse_vtt
         return parser(response.text)[:MAX_TRANSCRIPT_CHARS]
@@ -68,12 +70,30 @@ def fetch_transcript(info: dict) -> str:
 class YouTubeCollector(Collector):
     name = "youtube"
     platform = "youtube"
+    home_url = "https://www.youtube.com/"
+
+    def __init__(self, config: dict):
+        super().__init__(config)
+        self.proxy_pool = build_default_pool()
+
+    def _ydl_opts(self, target: str, **options) -> dict:
+        """yt-dlp options with a rotated browser header set and a proxy from the pool (ADR-0015)."""
+        profile = random_profile()
+        opts = {
+            "quiet": True,
+            "http_headers": {"User-Agent": profile["user_agent"], **profile["headers"]},
+            **options,
+        }
+        proxy_url = self.proxy_pool.get_proxy(target)
+        if proxy_url:
+            opts["proxy"] = proxy_url
+        return opts
 
     def discover(self) -> Iterator[str]:
         search_terms = self.config.get("search_terms", [])
         seed_channels = self.config.get("seed_channels", [])
 
-        ydl_opts = {"quiet": True, "extract_flat": True, "skip_download": True}
+        ydl_opts = self._ydl_opts(self.home_url, extract_flat=True, skip_download=True)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             for term in search_terms:
                 try:
@@ -91,20 +111,25 @@ class YouTubeCollector(Collector):
                     continue
 
     def fetch(self, candidate: str) -> RawDocument | None:
-        ydl_opts = {
-            "quiet": True,
-            "skip_download": True,
-            "writesubtitles": True,
-            "writeautomaticsub": True,
-            "subtitleslangs": ["pl", "en"],
-        }
+        ydl_opts = self._ydl_opts(
+            candidate,
+            skip_download=True,
+            writesubtitles=True,
+            writeautomaticsub=True,
+            subtitleslangs=["pl", "en"],
+        )
+        proxy_url = ydl_opts.get("proxy")
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(candidate, download=False)
         except Exception:
+            if proxy_url:
+                self.proxy_pool.report_failure(proxy_url)
             return None
+        if proxy_url:
+            self.proxy_pool.report_success(proxy_url)
 
-        transcript = fetch_transcript(info)
+        transcript = fetch_transcript(info, headers=ydl_opts["http_headers"], proxy=proxy_url)
 
         content = "\n".join(filter(None, [info.get("description", ""), transcript]))
 
@@ -124,9 +149,10 @@ class TikTokCollector(YouTubeCollector):
 
     name = "tiktok"
     platform = "tiktok"
+    home_url = "https://www.tiktok.com/"
 
     def discover(self) -> Iterator[str]:
-        ydl_opts = {"quiet": True, "extract_flat": True, "skip_download": True}
+        ydl_opts = self._ydl_opts(self.home_url, extract_flat=True, skip_download=True)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             for profile_url in self.config.get("seed_profiles", []):
                 try:

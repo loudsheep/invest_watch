@@ -2,6 +2,7 @@
 plus clone-firm / lookalike-domain detection against the registry (ADR-0004).
 """
 import re
+import socket
 from datetime import UTC, datetime
 from urllib.parse import urlparse
 
@@ -26,27 +27,83 @@ DOMAIN_AGE_CACHE_SECONDS = 86400 * 7
 UNKNOWN_AGE = "unknown"
 
 
+WHOIS_PORT = 43
+WHOIS_TIMEOUT_SECONDS = 5
+SECOND_LEVEL_LABELS = {"co", "com", "org", "net", "gov", "ac"}
+CREATED_RE = re.compile(r"^\s*(?:created|creation date|registered on|registration time)\s*:\s*(.+?)\s*$", re.I | re.M)
+DATE_FORMATS = ("%Y.%m.%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%d-%b-%Y", "%Y.%m.%d")
+
+
+def registered_domain(hostname: str) -> str:
+    labels = hostname.lower().split(".")
+    if len(labels) >= 3 and labels[-2] in SECOND_LEVEL_LABELS:
+        return ".".join(labels[-3:])
+    return ".".join(labels[-2:])
+
+
+def _whois(server: str, query: str) -> str:
+    with socket.create_connection((server, WHOIS_PORT), timeout=WHOIS_TIMEOUT_SECONDS) as sock:
+        sock.sendall(f"{query}\r\n".encode())
+        chunks = []
+        while chunk := sock.recv(4096):
+            chunks.append(chunk)
+    return b"".join(chunks).decode("utf-8", "ignore")
+
+
+def _parse_date(value: str) -> datetime | None:
+    value = value.strip()
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError:
+        pass
+    for fmt in DATE_FORMATS:
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _age_from_rdap(domain: str) -> int | None:
+    response = httpx.get(f"{RDAP_URL}{domain}", timeout=4, follow_redirects=True)
+    response.raise_for_status()
+    for event in response.json().get("events", []):
+        if event.get("eventAction") == "registration":
+            registered = datetime.fromisoformat(event["eventDate"].replace("Z", "+00:00"))
+            return (datetime.now(UTC) - registered).days
+    return None
+
+
+def _age_from_whois(domain: str) -> int | None:
+    tld = domain.rsplit(".", 1)[-1]
+    referral = re.search(r"^\s*(?:refer|whois):\s*(\S+)", _whois("whois.iana.org", tld), re.I | re.M)
+    if referral is None:
+        return None
+    match = CREATED_RE.search(_whois(referral.group(1), domain))
+    created = _parse_date(match.group(1)) if match else None
+    return (datetime.now(UTC).replace(tzinfo=None) - created).days if created else None
+
+
 def domain_age_days(hostname: str) -> int | None:
-    """Domain age from the public RDAP registration event; None when it cannot be determined."""
+    """Domain age from RDAP, falling back to WHOIS (many ccTLDs, including .pl, have no RDAP);
+    None when it cannot be determined."""
     if "." not in hostname:
         return None
-    cache_key = f"domain_age:{hostname}"
+    domain = registered_domain(hostname)
+    cache_key = f"domain_age:{domain}"
     redis_client = get_redis()
     cached = redis_client.get(cache_key)
     if cached is not None:
         return None if cached == UNKNOWN_AGE else int(cached)
 
     age: int | None = None
-    try:
-        response = httpx.get(f"{RDAP_URL}{hostname}", timeout=4, follow_redirects=True)
-        response.raise_for_status()
-        for event in response.json().get("events", []):
-            if event.get("eventAction") == "registration":
-                registered = datetime.fromisoformat(event["eventDate"].replace("Z", "+00:00"))
-                age = (datetime.now(UTC) - registered).days
-                break
-    except (httpx.HTTPError, ValueError, KeyError):
-        age = None
+    for lookup in (_age_from_rdap, _age_from_whois):
+        try:
+            age = lookup(domain)
+        except (httpx.HTTPError, OSError, ValueError, KeyError):
+            age = None
+        if age is not None:
+            break
     redis_client.set(cache_key, UNKNOWN_AGE if age is None else age, ex=DOMAIN_AGE_CACHE_SECONDS)
     return age
 

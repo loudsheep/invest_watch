@@ -66,8 +66,8 @@ def case_graph(case_id: int, db: Session = Depends(get_db), _user: User = Depend
     nodes: dict[str, dict] = {}
     edges: list[dict] = []
 
-    def add_node(node_id: str, label: str, node_type: str):
-        nodes[node_id] = {"id": node_id, "label": label, "type": node_type}
+    def add_node(node_id: str, label: str, node_type: str, **extra):
+        nodes[node_id] = {"id": node_id, "label": label, "type": node_type, **extra}
 
     primary = case.primary_entity
     add_node(f"entity:{primary.id}", primary.name, "entity")
@@ -76,7 +76,7 @@ def case_graph(case_id: int, db: Session = Depends(get_db), _user: User = Depend
     for f in findings:
         doc = f.document
         doc_node = f"document:{doc.id}"
-        add_node(doc_node, doc.title or doc.url, "document")
+        add_node(doc_node, doc.title or doc.url, "document", finding_id=f.id)
         edges.append({"source": f"entity:{primary.id}", "target": doc_node, "label": f.module})
 
         if doc.author:

@@ -83,7 +83,18 @@ STYLE_EXTRACTION_SCRIPT = """
         .map(a => (a.innerText || '').trim())
         .filter(t => t && /ryzyk|ostrze/i.test(t))
         .slice(0, 5);
+    const textBlocks = [];
+    for (const el of document.querySelectorAll('body *')) {
+        const txt = (el.innerText || '').trim();
+        if (txt.length < 12 || txt.length > 400) continue;
+        if ([...el.children].some(c => (c.innerText || '').trim().length >= 12)) continue;
+        const box = el.getBoundingClientRect();
+        if (box.width === 0 || box.height === 0) continue;
+        textBlocks.push({ text: txt, rect: { x: box.left + window.scrollX, y: box.top + window.scrollY, w: box.width, h: box.height } });
+        if (textBlocks.length >= 250) break;
+    }
     return {
+        text_blocks: textBlocks,
         risk_warning_elements: collect(riskHints),
         profit_claim_elements: collect(profitHints),
         historical_elements: collect(historicalHints),

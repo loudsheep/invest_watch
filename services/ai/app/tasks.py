@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from investwatch_common.app_settings import get_setting
+from investwatch_common.config import settings
 from investwatch_common.db import SessionLocal
 from investwatch_common.logging import get_logger
 from investwatch_common.models import Case, Document, Finding, Label, Mention, User
@@ -12,7 +13,8 @@ from .classifiers import m1, m2, m3
 from .classifiers.head import get_model_version, score_with_fallback, train_head
 from .embeddings import embed
 from .entity_resolution import find_entities_in_text, resolve_by_domain, resolve_mention
-from .llm import PROMPT_VERSION, analyze
+from .language import detect_language
+from .llm import PROMPT_VERSION, analyze, translate_to_polish
 from .topic_centroids import get_topic_vectors
 
 logger = get_logger(__name__)
@@ -57,11 +59,34 @@ def _cached_llm_analysis(doc: Document, module: str):
     return payload
 
 
-def _module_details(db, doc: Document, module: str) -> dict:
-    text = doc.text_normalized or doc.content or ""
+TRANSLATION_CACHE_PREFIX = "translation:"
+TRANSLATION_CACHE_TTL_SECONDS = 86400 * 30
+
+
+def _translation(doc: Document) -> dict | None:
+    """Polish translation of a non-Polish document (LLM, cached by content hash and model)."""
+    original = doc.text_normalized or doc.content or ""
+    language = detect_language(original)
+    if language in (None, "pl"):
+        return None
+    cache_key = f"{TRANSLATION_CACHE_PREFIX}{doc.content_hash}:{settings.llm_model}"
+    redis_client = get_redis()
+    cached = redis_client.get(cache_key)
+    if cached is not None:
+        return json.loads(cached)
+    text_pl = translate_to_polish(doc.content or original)
+    if not text_pl:
+        return None
+    payload = {"language": language, "text_pl": text_pl, "model": settings.llm_model}
+    redis_client.set(cache_key, json.dumps(payload), ex=TRANSLATION_CACHE_TTL_SECONDS)
+    return payload
+
+
+def _module_details(db, doc: Document, module: str, translation: dict | None = None) -> dict:
+    text = translation["text_pl"] if translation else doc.text_normalized or doc.content or ""
     if module == "m1":
         # raw content: normalization replaces URLs, which would hide ?ref= links and keeps case of promo codes
-        return m1.build_details(doc.content or text)
+        return m1.build_details(text if translation else doc.content or text)
     if module == "m2":
         return m2.evaluate(text, doc.computed_styles)
     if module == "m3":
@@ -172,10 +197,13 @@ def process_document(document_id: int, scan_id: str | None = None):
         _create_mentions(db, doc)
 
         _publish_scan_stage(scan_id, "classify", "running")
+        translation = _translation(doc)
         module_results: dict[str, dict] = {}
         llm_ran = False
         for module in ("m1", "m2", "m3"):
-            details = _module_details(db, doc, module)
+            details = _module_details(db, doc, module, translation)
+            if translation:
+                details["translation"] = translation
             if module == "m3" and _is_authorized_site(db, doc, details):
                 continue
             rule_score = _rule_signal_score(module, details)

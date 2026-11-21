@@ -12,13 +12,13 @@ from investwatch_common.schemas import LLMAnalysis
 
 logger = get_logger(__name__)
 
-PROMPT_VERSION = 1
+PROMPT_VERSION = 2
 
 SYSTEM_PROMPT = (
     "You are a compliance analyst assistant for the Polish financial regulator (UKNF). "
-    "Analyze the given text, written in Polish, and extract: mentioned entities, "
+    "Analyze the given text (usually Polish, possibly another language) and extract: mentioned entities, "
     "profit/return claims, risk statements, a verdict (one short phrase) and a rationale "
-    "(1-3 sentences). Quote the original Polish text for claims/statements. "
+    "(1-3 sentences, in Polish). Quote the original text verbatim, in its original language, for claims/statements. "
     "Respond with ONLY a JSON object matching this schema: "
     '{"entities": [string], "profit_claims": [string], "risk_statements": [string], '
     '"verdict": string, "rationale": string}'
@@ -43,6 +43,35 @@ def _call_llm(prompt: str) -> str:
     )
     response.raise_for_status()
     return response.json()["choices"][0]["message"]["content"]
+
+
+TRANSLATE_PROMPT = (
+    "Translate the user's text to Polish. Keep numbers, names, URLs and promo codes unchanged. "
+    "Output ONLY the translation, no comments."
+)
+
+
+def translate_to_polish(text: str) -> str | None:
+    headers = {"Authorization": f"Bearer {settings.llm_api_key}"} if settings.llm_api_key else {}
+    try:
+        response = httpx.post(
+            f"{settings.llm_base_url.rstrip('/')}/chat/completions",
+            headers=headers,
+            json={
+                "model": settings.llm_model,
+                "messages": [
+                    {"role": "system", "content": TRANSLATE_PROMPT},
+                    {"role": "user", "content": text[:4000]},
+                ],
+                "temperature": 0,
+            },
+            timeout=90,
+        )
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"].strip() or None
+    except (httpx.HTTPError, KeyError, ValueError) as exc:
+        logger.warning("translation_failed", error=str(exc))
+        return None
 
 
 def analyze(text: str, module: str) -> LLMAnalysis | None:

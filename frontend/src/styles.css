@@ -1587,14 +1587,45 @@ textarea.input {
 }
 
 .graph__edge {
+  fill: none;
   stroke: var(--line-strong);
   stroke-width: 1.5;
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+
+.graph__edge--on {
+  stroke: var(--brand);
+  stroke-width: 2.5;
+  opacity: 1;
+}
+
+.graph__edge--dim {
+  opacity: 0.12;
+}
+
+.graph__item {
+  cursor: default;
+  transition: opacity 0.15s;
+}
+
+.graph__item--dim {
+  opacity: 0.25;
+}
+
+.graph__hint {
+  margin-left: auto;
+  color: var(--text-tertiary);
+}
+
+.graph__node--domain {
+  stroke-dasharray: 4 3;
 }
 
 .graph__column {
   fill: var(--text-tertiary);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1621,9 +1652,9 @@ textarea.input {
 
 .graph__label {
   fill: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
+  font-family: var(--font-sans, inherit);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .graph__label--entity {

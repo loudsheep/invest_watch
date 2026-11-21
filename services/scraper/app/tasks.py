@@ -62,6 +62,13 @@ def _detect_change(db, raw: RawDocument, normalized: str) -> None:
         }
 
 
+def _with_dataset_label(raw: RawDocument) -> dict | None:
+    label = raw.extra.get("label")
+    if label is None:
+        return raw.computed_styles
+    return {**(raw.computed_styles or {}), "dataset_label": label}
+
+
 def _store_raw_document(db, source_id: int, raw: RawDocument) -> Document | None:
     normalized = normalize_text(raw.content)
     doc_hash = content_hash(normalized)
@@ -95,7 +102,7 @@ def _store_raw_document(db, source_id: int, raw: RawDocument) -> Document | None
         text_normalized=normalized,
         minio_html_key=html_key,
         minio_screenshot_key=screenshot_key,
-        computed_styles=raw.computed_styles,
+        computed_styles=_with_dataset_label(raw),
     )
     db.add(doc)
     try:

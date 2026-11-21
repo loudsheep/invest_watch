@@ -56,8 +56,10 @@ STYLE_EXTRACTION_SCRIPT = """
             if (!txt || txt.length > 2000 || !hints.some(h => txt.includes(h))) continue;
             if ([...el.children].some(c => hints.some(h => (c.innerText || '').toLowerCase().includes(h)))) continue;
             const style = window.getComputedStyle(el);
+            const box = el.getBoundingClientRect();
             results.push({
                 tag: el.tagName,
+                rect: { x: box.left + window.scrollX, y: box.top + window.scrollY, w: box.width, h: box.height },
                 text: (el.innerText || '').trim().slice(0, 160),
                 fontSize: style.fontSize,
                 color: style.color,

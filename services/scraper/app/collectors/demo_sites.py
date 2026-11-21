@@ -20,4 +20,4 @@ class DemoSitesCollector(OpenWebCollector):
         index = httpx.get(f"{base_url}/index.json", timeout=10)
         index.raise_for_status()
         for page in index.json():
-            yield base_url + page
+            yield page if page.startswith("http") else base_url + page

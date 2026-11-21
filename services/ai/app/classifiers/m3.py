@@ -12,6 +12,8 @@ from investwatch_common.redis_client import get_redis
 from rapidfuzz import fuzz
 from sqlalchemy.orm import Session
 
+from ..entity_resolution import find_entities_by_ids
+
 ADVISORY_PATTERNS = [
     r"doradztwo inwestycyjne",
     r"zarz(a|ą)dzanie maj(a|ą)tkiem",
@@ -149,7 +151,18 @@ def build_details(db: Session, text: str, url: str) -> dict:
     advisory_evidence = detect_advisory_offer(text)
     lookalike = detect_lookalike_domain(db, url)
     hostname = urlparse(url).hostname or ""
+    id_matches = [
+        {
+            "id_type": kind,
+            "number": number,
+            "entity": entity.name,
+            "authorized": bool(entity.authorized),
+            "source": entity.source,
+        }
+        for kind, number, entity in find_entities_by_ids(db, text)
+    ]
     return {
+        "registry_id_matches": id_matches,
         "advisory_offer_evidence": advisory_evidence,
         "lookalike_domain": lookalike,
         "domain": lookalike["suspected_domain"] if lookalike else urlparse(url).netloc,

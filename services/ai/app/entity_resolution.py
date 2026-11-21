@@ -46,6 +46,27 @@ def resolve_mention(db: Session, text: str) -> Entity | None:
     return entity
 
 
+KRS_RE = re.compile(r"\bKRS\s*(?:nr\.?|numer)?[:\s]*(\d{10})\b", re.IGNORECASE)
+NIP_RE = re.compile(r"\bNIP\s*(?:nr\.?|numer)?[:\s]*((?:PL)?[\d\- ]{10,14})", re.IGNORECASE)
+
+
+def extract_registry_ids(text: str) -> dict[str, set[str]]:
+    """KRS and NIP numbers quoted in the text, digits only."""
+    nips = {digits for m in NIP_RE.finditer(text) if len(digits := re.sub(r"\D", "", m.group(1))) == 10}
+    return {"krs": {m.group(1) for m in KRS_RE.finditer(text)}, "nip": nips}
+
+
+def find_entities_by_ids(db: Session, text: str) -> list[tuple[str, str, Entity]]:
+    """Registry entities whose KRS or NIP appears in the text: (id type, number, entity)."""
+    ids = extract_registry_ids(text)
+    matches = []
+    if ids["krs"]:
+        matches += [("KRS", e.krs, e) for e in db.query(Entity).filter(Entity.krs.in_(ids["krs"])).all()]
+    if ids["nip"]:
+        matches += [("NIP", e.nip, e) for e in db.query(Entity).filter(Entity.nip.in_(ids["nip"])).all()]
+    return matches
+
+
 def find_entities_in_text(db: Session, text: str) -> list[Entity]:
     """Registry entities whose name or alias appears verbatim (whole words) in the text."""
     found: dict[int, Entity] = {}

@@ -3,6 +3,7 @@
 to the finding. Changing the rules means editing YAML, not this file.
 """
 import re
+from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
 
@@ -265,12 +266,12 @@ DETECTORS = {
 }
 
 
-def _result(criterion: dict, applicable: bool, score: float, evidence: str | None) -> dict:
+def _result(criterion: dict, applicable: bool, score: float, evidence: str | None, detector: str | None = None) -> dict:
     return {
         "id": criterion["id"],
         "ref": criterion.get("ref"),
         "name": criterion.get("name"),
-        "detector": criterion["detector"],
+        "detector": detector or criterion["detector"],
         "description": criterion["description"],
         "legal_basis": criterion["legal_basis"],
         "applicable": applicable,
@@ -280,7 +281,25 @@ def _result(criterion: dict, applicable: bool, score: float, evidence: str | Non
     }
 
 
-def evaluate(text: str, computed_styles: dict | None = None) -> dict:
+JudgeFn = Callable[[dict, str], dict | None]
+
+
+def _llm_outcome(judge: JudgeFn, criterion: dict, text: str, computed_styles: dict | None):
+    """(score, evidence) from the LLM judge for criteria marked `llm_judge`; None to use the heuristic."""
+    if criterion["id"] == "risk_readability":
+        subject = " ".join(_risk_sentences(text, computed_styles))
+    else:
+        subject = text
+    if not subject.strip():
+        return None
+    verdict = judge(criterion, subject)
+    if verdict is None:
+        return None
+    detail = verdict["reason"] + (f" \u201e{verdict['evidence']}\u201d" if verdict["evidence"] else "")
+    return (1.0 if verdict["pass"] else 0.0), detail.strip()
+
+
+def evaluate(text: str, computed_styles: dict | None = None, judge: JudgeFn | None = None) -> dict:
     rules = load_rules()
     criteria_results = []
     total_score = 0.0
@@ -292,7 +311,13 @@ def evaluate(text: str, computed_styles: dict | None = None) -> dict:
             criteria_results.append(_result(criterion, False, 1.0, None))
             continue
 
-        outcome = DETECTORS[criterion["detector"]](text, computed_styles, criterion)
+        detector = criterion["detector"]
+        outcome = None
+        if judge is not None and criterion.get("llm_judge"):
+            outcome = _llm_outcome(judge, criterion, text, computed_styles)
+            detector = "llm" if outcome is not None else detector
+        if outcome is None:
+            outcome = DETECTORS[criterion["detector"]](text, computed_styles, criterion)
         if outcome is None:
             criteria_results.append(_result(criterion, False, 1.0, None))
             continue
@@ -300,7 +325,7 @@ def evaluate(text: str, computed_styles: dict | None = None) -> dict:
         score, evidence = outcome
         total_score += score * criterion["weight"]
         total_weight += criterion["weight"]
-        criteria_results.append(_result(criterion, True, score, evidence))
+        criteria_results.append(_result(criterion, True, score, evidence, detector))
 
     compliance_score = total_score / total_weight if total_weight else 0.0
     change = (computed_styles or {}).get("change_detection")

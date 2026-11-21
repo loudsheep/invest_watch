@@ -8,6 +8,7 @@ from .orm import (
     Finding,
     Label,
     Mention,
+    ModelRun,
     Source,
     User,
 )
@@ -20,6 +21,7 @@ __all__ = [
     "Source",
     "Document",
     "Mention",
+    "ModelRun",
     "Finding",
     "Case",
     "Label",

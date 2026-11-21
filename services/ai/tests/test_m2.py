@@ -82,3 +82,32 @@ def test_removed_disclaimer_raises_risk():
 
 def test_risk_warning_wording_variants():
     assert result("Inwestowanie w CFD wiąże się z ryzykiem.")["risk_warning_present"]["score"] == 1.0
+
+
+def test_llm_judge_overrides_heuristic_and_marks_detector():
+    def judge(criterion, subject):
+        return {"pass": False, "evidence": "ekspozycja netto", "reason": "Żargon."}
+
+    text = "Ryzyko utraty kapitału wynika z ekspozycji netto na instrumenty pochodne."
+    criteria = {c["id"]: c for c in m2.evaluate(text, None, judge=judge)["criteria"]}
+    assert criteria["risk_readability"]["detector"] == "llm"
+    assert criteria["risk_readability"]["score"] == 0.0
+    assert "ekspozycja netto" in criteria["risk_readability"]["evidence"]
+
+
+def test_failed_llm_judge_falls_back_to_heuristic():
+    criteria = {c["id"]: c for c in m2.evaluate("Ryzyko utraty kapitału.", None, judge=lambda c, s: None)["criteria"]}
+    assert criteria["risk_readability"]["detector"] == "readability"
+
+
+def test_comparison_criterion_uses_llm_only_when_applicable():
+    calls = []
+
+    def judge(criterion, subject):
+        calls.append(criterion["id"])
+        return {"pass": True, "evidence": "", "reason": "Źródło podane."}
+
+    m2.evaluate("Zwykła reklama bez porównań.", None, judge=judge)
+    assert "product_comparison" not in calls
+    m2.evaluate("Jesteśmy najlepszym brokerem w kraju.", None, judge=judge)
+    assert "product_comparison" in calls

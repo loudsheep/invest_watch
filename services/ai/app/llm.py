@@ -74,6 +74,46 @@ def translate_to_polish(text: str) -> str | None:
         return None
 
 
+JUDGE_PROMPT_VERSION = 1
+
+JUDGE_SYSTEM = (
+    "You assess marketing material of an investment firm against ONE compliance criterion for the "
+    "Polish financial regulator (UKNF). Respond with ONLY a JSON object: "
+    '{"pass": boolean, "evidence": string, "reason": string}. '
+    '"evidence" quotes the decisive passage verbatim in its original language (empty if none); '
+    '"reason" is at most two sentences in Polish.'
+)
+
+
+def judge_criterion(instruction: str, text: str) -> dict | None:
+    """LLM verdict for one criterion: {"pass": bool, "evidence": str, "reason": str}, or None on failure."""
+    headers = {"Authorization": f"Bearer {settings.llm_api_key}"} if settings.llm_api_key else {}
+    prompt = f"Criterion: {instruction}\n\nMaterial:\n{text[:4000]}"
+    for attempt in range(2):
+        try:
+            response = httpx.post(
+                f"{settings.llm_base_url.rstrip('/')}/chat/completions",
+                headers=headers,
+                json={
+                    "model": settings.llm_model,
+                    "messages": [{"role": "system", "content": JUDGE_SYSTEM}, {"role": "user", "content": prompt}],
+                    "response_format": {"type": "json_object"},
+                    "temperature": 0,
+                },
+                timeout=60,
+            )
+            response.raise_for_status()
+            data = json.loads(response.json()["choices"][0]["message"]["content"])
+            return {
+                "pass": bool(data["pass"]),
+                "evidence": str(data.get("evidence") or ""),
+                "reason": str(data.get("reason") or ""),
+            }
+        except (httpx.HTTPError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            logger.warning("llm_judge_failed", attempt=attempt, error=str(exc))
+    return None
+
+
 def analyze(text: str, module: str) -> LLMAnalysis | None:
     prompt = f"Module: {module}\n\nText:\n{text[:4000]}"
 

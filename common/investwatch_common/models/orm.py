@@ -177,3 +177,15 @@ class AppSetting(Base):
     key: Mapped[str] = mapped_column(String(100), primary_key=True)
     value: Mapped[dict | list | str | int | float | bool | None] = mapped_column(JSONB)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ModelRun(Base):
+    __tablename__ = "model_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    module: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    labels: Mapped[int] = mapped_column(Integer, nullable=False)
+    positives: Mapped[int] = mapped_column(Integer, nullable=False)
+    metrics: Mapped[dict | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

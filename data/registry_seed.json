@@ -61,7 +61,9 @@
       "source": "warning_list",
       "domains": [
         "aurum-invest-demo.local"
-      ]
+      ],
+      "krs": "0000999999",
+      "nip": "5260000001"
     },
     {
       "name": "Fikcyjna Grupa Partner Wealth",

@@ -5,16 +5,16 @@ from investwatch_common.app_settings import get_setting
 from investwatch_common.config import settings
 from investwatch_common.db import SessionLocal
 from investwatch_common.logging import get_logger
-from investwatch_common.models import Case, Document, Finding, Label, Mention, User
+from investwatch_common.models import Case, Document, Finding, Label, Mention, ModelRun, User
 from investwatch_common.redis_client import HIGH_RISK_CHANNEL, get_redis
 
 from .celery_app import celery_app
 from .classifiers import m1, m2, m3
 from .classifiers.head import get_model_version, score_with_fallback, train_head
 from .embeddings import embed
-from .entity_resolution import find_entities_in_text, resolve_by_domain, resolve_mention
+from .entity_resolution import find_entities_by_ids, find_entities_in_text, resolve_by_domain, resolve_mention
 from .language import detect_language
-from .llm import PROMPT_VERSION, analyze, translate_to_polish
+from .llm import JUDGE_PROMPT_VERSION, PROMPT_VERSION, analyze, judge_criterion, translate_to_polish
 from .topic_centroids import get_topic_vectors
 
 logger = get_logger(__name__)
@@ -82,13 +82,33 @@ def _translation(doc: Document) -> dict | None:
     return payload
 
 
-def _module_details(db, doc: Document, module: str, translation: dict | None = None) -> dict:
+JUDGE_CACHE_PREFIX = "llm_judge:"
+
+
+def _make_judge(doc: Document):
+    """LLM verdict per (document, criterion), cached by content hash and prompt version."""
+    redis_client = get_redis()
+
+    def judge(criterion: dict, subject: str) -> dict | None:
+        key = f"{JUDGE_CACHE_PREFIX}{doc.content_hash}:{criterion['id']}:v{JUDGE_PROMPT_VERSION}:{settings.llm_model}"
+        cached = redis_client.get(key)
+        if cached is not None:
+            return json.loads(cached)
+        verdict = judge_criterion(criterion["llm_instruction"], subject)
+        if verdict is not None:
+            redis_client.set(key, json.dumps(verdict), ex=LLM_CACHE_TTL_SECONDS)
+        return verdict
+
+    return judge
+
+
+def _module_details(db, doc: Document, module: str, translation: dict | None = None, judge=None) -> dict:
     text = translation["text_pl"] if translation else doc.text_normalized or doc.content or ""
     if module == "m1":
         # raw content: normalization replaces URLs, which would hide ?ref= links and keeps case of promo codes
         return m1.build_details(text if translation else doc.content or text)
     if module == "m2":
-        return m2.evaluate(text, doc.computed_styles)
+        return m2.evaluate(text, doc.computed_styles, judge=judge)
     if module == "m3":
         return m3.build_details(db, text, doc.url)
     return {}
@@ -104,6 +124,8 @@ def _rule_signal_score(module: str, details: dict) -> float:
     if module == "m3":
         has_advisory = bool(details.get("advisory_offer_evidence"))
         has_lookalike = bool(details.get("lookalike_domain"))
+        if any(not match["authorized"] for match in details.get("registry_id_matches", [])):
+            return 0.95  # the text quotes the KRS/NIP of an entity from the public warnings list
         age = details.get("domain_age_days")
         young_domain = age is not None and age < 365
         lookalike_score = 0.9 if has_lookalike and young_domain else 0.8
@@ -123,8 +145,10 @@ def _create_mentions(db, doc: Document) -> None:
 
     db.flush()
     known = {m.entity_id for m in db.query(Mention).filter(Mention.document_id == doc.id).all()}
-    for entity in find_entities_in_text(db, doc.content or ""):
+    by_ids = [entity for _kind, _number, entity in find_entities_by_ids(db, doc.content or "")]
+    for entity in [*find_entities_in_text(db, doc.content or ""), *by_ids]:
         if entity.id not in known:
+            known.add(entity.id)
             db.add(Mention(document_id=doc.id, entity_id=entity.id, role="advertised_firm"))
     db.commit()
 
@@ -210,13 +234,23 @@ def process_document(document_id: int, scan_id: str | None = None):
             head_score = score_with_fallback(module, embedding, get_topic_vectors(module))
             module_results[module] = {"relevance": round(head_score, 2), "score": None, "finding_id": None}
             removed_disclaimer = module == "m2" and bool((doc.computed_styles or {}).get("change_detection"))
-            if head_score < RELEVANCE_THRESHOLD and not removed_disclaimer:
+            warned_entity = module == "m3" and any(
+                not match["authorized"] for match in details.get("registry_id_matches", [])
+            )
+            if head_score < RELEVANCE_THRESHOLD and not (removed_disclaimer or warned_entity):
                 continue  # rules only measure how bad a relevant document is
             combined_score = max(rule_score, head_score)
 
             threshold = _get_threshold(module)
             if combined_score < threshold * 0.5:
                 continue  # not even a weak candidate, skip creating noise
+
+            if module == "m2":  # the LLM judge runs only for documents that are relevant enough to become findings
+                details = _module_details(db, doc, module, translation, judge=_make_judge(doc))
+                if translation:
+                    details["translation"] = translation
+                rule_score = _rule_signal_score(module, details)
+                combined_score = max(rule_score, head_score)
 
             evidence_text = json.dumps(details, ensure_ascii=False)[:2000]
             explanation = f"Rule signal={rule_score:.2f}, classifier={head_score:.2f}"
@@ -303,6 +337,17 @@ def retrain_classifier(module: str):
                 labels.append(bool(label))
 
         result = train_head(module, embeddings, labels)
+        if result["status"] == "trained":
+            db.add(
+                ModelRun(
+                    module=module,
+                    version=result["version"],
+                    labels=result["n_samples"],
+                    positives=result["positives"],
+                    metrics=result["metrics"],
+                )
+            )
+            db.commit()
         logger.info("retrain_complete", module=module, result=result)
         return result
     finally:

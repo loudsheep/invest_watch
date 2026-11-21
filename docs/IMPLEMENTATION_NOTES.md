@@ -53,3 +53,7 @@ alongside `docs/OPEN_QUESTIONS.md` for what's still missing.
 
 - No automated tests yet (pytest/vitest wired into CI but no test files exist). Given the deadline, correctness was prioritized over test coverage for this first pass - add tests before relying on this for anything beyond the demo.
 - `services/ai/app/classifiers/head.py` persists trained models to a local `/app/models` volume inside the container - this is lost on container recreation unless a volume is mounted. Fine for a single demo run; add a named volume if retraining needs to survive restarts.
+
+## LLM via OpenAI-compatible API
+
+The LLM client calls `/chat/completions` instead of Ollama's native `/api/generate`. Default endpoint is OpenRouter (no local model needed for development); Ollama stays available behind `--profile ollama` using its `/v1` endpoint, so ADR-0002's self-hosted deployment remains a configuration change.

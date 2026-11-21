@@ -1,41 +1,63 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../lib/api";
+import { Link } from "react-router-dom";
+import pl from "../i18n/pl.json";
+import ModuleTag from "../components/ModuleTag";
+import Ruler from "../components/Ruler";
+import { api, type CaseRow } from "../lib/api";
+import { formatDate } from "../lib/modules";
 
-interface CaseRow {
-  id: number;
-  primary_entity_id: number;
-  status: string;
-  description: string | null;
+function CaseItem({ item }: { item: CaseRow }) {
+  const [open, setOpen] = useState(false);
+  const detail = useQuery({ queryKey: ["case", item.id], queryFn: () => api.getCase(item.id), enabled: open });
+  const count = item.finding_ids?.length ?? 0;
+
+  return (
+    <li className="case">
+      <button className="case__head" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="row__id">#{item.id}</span>
+        <span className="case__title">
+          {pl["cases.entity"]} #{item.primary_entity_id}
+          <span className="case__desc">{item.description || pl["cases.noDescription"]}</span>
+        </span>
+        <span className="case__count">{count}</span>
+        <span className="status">{item.status}</span>
+        <span className="row__meta">{formatDate(item.created_at)}</span>
+      </button>
+      {open && (
+        <div className="case__body">
+          <h3 className="section__title">{pl["cases.findings"]}</h3>
+          <ul className="rows">
+            {(detail.data?.findings ?? []).map((f) => (
+              <li key={f.id}>
+                <Link to={`/findings/${f.id}`} className="row row--finding">
+                  <ModuleTag module={f.module} />
+                  <Ruler score={f.score} module={f.module} />
+                  <span className="score">{f.score.toFixed(2)}</span>
+                  <span className="row__meta">#{f.id}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </li>
+  );
 }
 
 export default function Cases() {
-  const { data } = useQuery({ queryKey: ["cases"], queryFn: () => api.listCases() as Promise<CaseRow[]> });
+  const { data, isError, isSuccess } = useQuery({ queryKey: ["cases"], queryFn: api.listCases });
 
   return (
-    <div>
-      <h2>Case&apos;y</h2>
-      <div className="card">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Podmiot</th>
-              <th>Status</th>
-              <th>Opis</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(data || []).map((c) => (
-              <tr key={c.id}>
-                <td>#{c.id}</td>
-                <td>{c.primary_entity_id}</td>
-                <td>{c.status}</td>
-                <td>{c.description}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <>
+      <h1 className="page__title">{pl["cases.title"]}</h1>
+      {isError && <p className="notice">{pl["common.error"]}</p>}
+      {isSuccess && data.length === 0 && <p className="empty">{pl["cases.empty"]}</p>}
+      <ul className="rows">
+        {(data ?? []).map((c) => (
+          <CaseItem key={c.id} item={c} />
+        ))}
+      </ul>
+    </>
   );
 }

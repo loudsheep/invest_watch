@@ -10,15 +10,20 @@ interface StageEvent {
   message?: string | null;
 }
 
+const STAGES = ["fetch", "preprocess", "embed", "classify", "llm", "done"] as const;
+const labels = pl as Record<string, string>;
+
 export default function ScanNow() {
   const [url, setUrl] = useState("");
   const [scanId, setScanId] = useState<string | null>(null);
-  const [stages, setStages] = useState<StageEvent[]>([]);
+  const [events, setEvents] = useState<StageEvent[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     function onStage(event: StageEvent) {
       if (event.scan_id !== scanId) return;
-      setStages((prev) => [...prev, event]);
+      setEvents((prev) => [...prev, event]);
     }
     socket.on("scan_stage", onStage);
     return () => {
@@ -26,35 +31,66 @@ export default function ScanNow() {
     };
   }, [scanId]);
 
-  async function handleScan() {
-    setStages([]);
-    const { scan_id } = await api.scanUrl(url);
-    setScanId(scan_id);
-    socket.emit("subscribe_scan", { scan_id });
+  async function handleScan(e: React.FormEvent) {
+    e.preventDefault();
+    setEvents([]);
+    setFailed(false);
+    setBusy(true);
+    try {
+      const { scan_id } = await api.scanUrl(url);
+      setScanId(scan_id);
+      socket.emit("subscribe_scan", { scan_id });
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
   }
 
+  const latest = new Map(events.map((e) => [e.stage, e]));
+  const errored = events.find((e) => e.stage === "error" || e.status === "error");
+
   return (
-    <div>
-      <h2>{pl["nav.scan"]}</h2>
-      <div className="card">
+    <>
+      <h1 className="page__title">{pl["scan.title"]}</h1>
+      <p className="lede">{pl["scan.lede"]}</p>
+
+      <form className="scanform" onSubmit={handleScan}>
         <input
-          style={{ width: "70%" }}
+          className="input input--wide"
+          type="url"
+          required
           placeholder={pl["scan.placeholder"]}
+          aria-label={pl["scan.title"]}
           value={url}
           onChange={(e) => setUrl(e.target.value)}
         />
-        <button className="btn" onClick={handleScan} style={{ marginLeft: "0.5rem" }}>
+        <button className="btn" type="submit" disabled={busy || !url}>
           {pl["scan.button"]}
         </button>
+      </form>
 
-        <ul style={{ marginTop: "1rem" }}>
-          {stages.map((s, i) => (
-            <li key={i}>
-              <strong>{s.stage}</strong>: {s.status} {s.message ? `- ${s.message}` : ""}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
+      {(failed || errored) && (
+        <p className="notice" role="alert">
+          {errored?.message || pl["scan.failed"]}
+        </p>
+      )}
+
+      {scanId && (
+        <ol className="stages" aria-label={pl["scan.running"]}>
+          {STAGES.map((stage) => {
+            const event = latest.get(stage);
+            const state = event?.status === "done" || (stage === "done" && event) ? "done" : event ? "running" : "waiting";
+            return (
+              <li key={stage} className={`stage stage--${state}`}>
+                <span className="stage__dot" aria-hidden="true" />
+                <span className="stage__name">{labels[`scan.stage.${stage}`]}</span>
+                {event?.message && <span className="stage__msg">{event.message}</span>}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </>
   );
 }

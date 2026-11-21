@@ -11,17 +11,16 @@ Autonomiczny system nadzoru treści finansowych w sieci. Koncepcja: [docs/CONCEP
 ## Quick Start
 
 ```bash
-cp .env.example .env
+cp .env.example .env                              # wpisz LLM_API_KEY (OpenRouter)
 docker compose --profile migrate up migrate       # migracje + seed rejestru i użytkowników
 docker compose up -d garage
 ./garage/init.sh                                   # jednorazowo: layout, klucz dostępu, bucket
-docker compose --profile init up ollama-init       # pobiera model LLM (jednorazowo)
 docker compose up
 ```
 
-- Dashboard: http://localhost:5173
-- API: http://localhost:8000 (health: `/health`)
-- Garage (S3 API, ewentualnie do podglądu przez `aws s3 --endpoint-url`): http://localhost:3900
+- Dashboard: http://localhost:47173
+- API: http://localhost:47800 (health: `/health`)
+- Garage (S3 API, ewentualnie do podglądu przez `aws s3 --endpoint-url`): http://localhost:47900
 - Domyślni użytkownicy (dev): `analyst` / `admin`, hasło `changeme-dev` (zmień `JWT_SECRET` i hasła poza środowiskiem lokalnym).
 
 ## Konfiguracja serwisów
@@ -30,7 +29,7 @@ Wszystkie zmienne w `.env` (skopiowane z `.env.example`). Kluczowe:
 
 | Zmienna | Rola |
 |---|---|
-| `LLM_BASE_URL`, `LLM_MODEL` | adres i model Ollama (ADR-0002, ADR-0014) |
+| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | endpoint zgodny z OpenAI: OpenRouter (domyślnie) lub Ollama `/v1` (`--profile ollama`, ADR-0002, ADR-0014) |
 | `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | dostęp do Garage (dowody: HTML, screenshoty) |
 | `PROXY_URLS` | pula proxy dla scrapera (ADR-0015), pusta = połączenie bezpośrednie |
 | `JWT_SECRET` | sekret sesji (ADR-0016) |

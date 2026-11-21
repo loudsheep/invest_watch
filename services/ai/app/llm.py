@@ -1,5 +1,6 @@
-"""Ollama client for candidate documents that cleared the pre-filter threshold.
-Structured output (format=json) + Pydantic validation + one retry on parse
+"""OpenAI-compatible chat client (OpenRouter or Ollama /v1) for candidate documents
+that cleared the pre-filter threshold.
+Structured output (response_format=json_object) + Pydantic validation + one retry on parse
 failure, per CONCEPT ch.5 / ADR-0002 / ADR-0014.
 """
 import json
@@ -24,20 +25,24 @@ SYSTEM_PROMPT = (
 )
 
 
-def _call_ollama(prompt: str) -> str:
+def _call_llm(prompt: str) -> str:
+    headers = {"Authorization": f"Bearer {settings.llm_api_key}"} if settings.llm_api_key else {}
     response = httpx.post(
-        f"{settings.llm_base_url}/api/generate",
+        f"{settings.llm_base_url.rstrip('/')}/chat/completions",
+        headers=headers,
         json={
             "model": settings.llm_model,
-            "system": SYSTEM_PROMPT,
-            "prompt": prompt,
-            "format": "json",
-            "stream": False,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0,
         },
         timeout=60,
     )
     response.raise_for_status()
-    return response.json()["response"]
+    return response.json()["choices"][0]["message"]["content"]
 
 
 def analyze(text: str, module: str) -> LLMAnalysis | None:
@@ -45,7 +50,7 @@ def analyze(text: str, module: str) -> LLMAnalysis | None:
 
     for attempt in range(2):
         try:
-            raw = _call_ollama(prompt)
+            raw = _call_llm(prompt)
             data = json.loads(raw)
             return LLMAnalysis(**data)
         except (httpx.HTTPError, json.JSONDecodeError, ValueError, KeyError) as exc:

@@ -1,75 +1,125 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import pl from "../i18n/pl.json";
 import { api } from "../lib/api";
+import { MODULES, moduleInfo } from "../lib/modules";
 
 export default function Calibration() {
   const [module, setModule] = useState("m1");
+  const [draft, setDraft] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
-  const { data } = useQuery({
+  const { data, isError } = useQuery({
     queryKey: ["calibration", module],
     queryFn: () => api.getCalibration(module),
   });
 
-  async function handleThresholdChange(value: number) {
-    await api.setThreshold(module, value);
-    queryClient.invalidateQueries({ queryKey: ["calibration", module] });
-  }
+  const setThreshold = useMutation({
+    mutationFn: (value: number) => api.setThreshold(module, value),
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["calibration", module] });
+      setDraft(null);
+    },
+  });
 
-  async function handleRetrain() {
-    await api.retrain(module);
-  }
+  const retrain = useMutation({ mutationFn: () => api.retrain(module) });
+
+  const color = moduleInfo(module).color;
+  const threshold = draft ?? data?.threshold ?? 0.5;
 
   return (
-    <div>
-      <h2>{pl["nav.calibration"]}</h2>
-      <div className="card">
-        <select value={module} onChange={(e) => setModule(e.target.value)}>
-          <option value="m1">M1</option>
-          <option value="m2">M2</option>
-          <option value="m3">M3</option>
-        </select>
+    <>
+      <h1 className="page__title">{pl["calibration.title"]}</h1>
+      <p className="lede">{pl["calibration.lede"]}</p>
 
-        {data && (
-          <>
-            <div style={{ margin: "1rem 0" }}>
-              <label>
-                {pl["calibration.threshold"]}: {data.threshold.toFixed(2)}
-              </label>
-              <br />
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.01}
-                value={data.threshold}
-                onChange={(e) => handleThresholdChange(Number(e.target.value))}
-                style={{ width: "100%" }}
-              />
-            </div>
-            <p>
-              {pl["calibration.precision"]}: {(data.precision * 100).toFixed(1)}% &nbsp;
-              {pl["calibration.recall"]}: {(data.recall * 100).toFixed(1)}% &nbsp;
-              FP: {data.false_positives} &nbsp; FN: {data.false_negatives}
-            </p>
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={data.pr_curve}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="threshold" />
-                <YAxis domain={[0, 1]} />
-                <Tooltip />
-                <Line type="monotone" dataKey="precision" stroke="#2563eb" dot={false} />
-                <Line type="monotone" dataKey="recall" stroke="#16a34a" dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-            <button className="btn" onClick={handleRetrain}>
+      <div className="chips" role="group" aria-label={pl["common.module"]}>
+        <span className="chips__label">{pl["common.module"]}</span>
+        {MODULES.map((m) => (
+          <button
+            key={m.id}
+            className="chip"
+            aria-pressed={module === m.id}
+            onClick={() => {
+              setModule(m.id);
+              setDraft(null);
+            }}
+          >
+            {m.short} {m.name}
+          </button>
+        ))}
+      </div>
+
+      {isError && <p className="notice">{pl["common.error"]}</p>}
+
+      {data && (
+        <div className="split split--calibration">
+          <section>
+            <label className="threshold" htmlFor="threshold">
+              <span className="field__label">{pl["calibration.threshold"]}</span>
+              <span className="threshold__value">{threshold.toFixed(2)}</span>
+            </label>
+            <input
+              id="threshold"
+              className="slider"
+              style={{ accentColor: color }}
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={threshold}
+              onChange={(e) => setDraft(Number(e.target.value))}
+              onPointerUp={() => draft !== null && setThreshold.mutate(draft)}
+              onKeyUp={() => draft !== null && setThreshold.mutate(draft)}
+            />
+
+            <dl className="metrics">
+              <div>
+                <dt>{pl["calibration.precision"]}</dt>
+                <dd>{(data.precision * 100).toFixed(1)}%</dd>
+              </div>
+              <div>
+                <dt>{pl["calibration.recall"]}</dt>
+                <dd>{(data.recall * 100).toFixed(1)}%</dd>
+              </div>
+              <div>
+                <dt>{pl["calibration.falsePositives"]}</dt>
+                <dd>{data.false_positives}</dd>
+              </div>
+              <div>
+                <dt>{pl["calibration.falseNegatives"]}</dt>
+                <dd>{data.false_negatives}</dd>
+              </div>
+            </dl>
+
+            <button className="btn btn--ghost" disabled={retrain.isPending} onClick={() => retrain.mutate()}>
               {pl["calibration.retrain"]}
             </button>
-          </>
-        )}
-      </div>
-    </div>
+            {retrain.isSuccess && (
+              <p className="saved" role="status">
+                {pl["calibration.retrainStarted"]}
+              </p>
+            )}
+          </section>
+
+          <section>
+            <h2 className="section__title">{pl["calibration.curve"]}</h2>
+            <div className="chart">
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={data.pr_curve}>
+                  <CartesianGrid vertical={false} stroke="#c3ced2" />
+                  <XAxis dataKey="threshold" type="number" domain={[0, 1]} tickLine={false} axisLine={false} />
+                  <YAxis domain={[0, 1]} tickLine={false} axisLine={false} width={32} />
+                  <Tooltip />
+                  <ReferenceLine x={threshold} stroke="#12252d" strokeDasharray="4 3" />
+                  <Line type="monotone" dataKey="precision" name={pl["calibration.precision"]} stroke={color} strokeWidth={2.5} dot={false} />
+                  <Line type="monotone" dataKey="recall" name={pl["calibration.recall"]} stroke="#4b5f68" strokeWidth={2} strokeDasharray="5 4" dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        </div>
+      )}
+    </>
   );
 }

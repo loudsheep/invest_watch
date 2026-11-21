@@ -1,81 +1,77 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import pl from "../i18n/pl.json";
+import ModuleTag from "../components/ModuleTag";
+import Ruler from "../components/Ruler";
 import { api } from "../lib/api";
+import { HIGH_RISK, MODULES, STATUSES, formatDate, statusLabel } from "../lib/modules";
+
+interface ChipsProps {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+}
+
+function Chips({ label, value, options, onChange }: ChipsProps) {
+  return (
+    <div className="chips" role="group" aria-label={label}>
+      <span className="chips__label">{label}</span>
+      {[{ value: "", label: pl["common.all"] }, ...options].map((o) => (
+        <button key={o.value} className="chip" aria-pressed={value === o.value} onClick={() => onChange(o.value)}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default function Findings() {
   const [module, setModule] = useState("");
   const [status, setStatus] = useState("");
-  const queryClient = useQueryClient();
 
-  const { data } = useQuery({
+  const { data, isError, isSuccess } = useQuery({
     queryKey: ["findings", module, status],
     queryFn: () => api.listFindings({ module: module || undefined, status: status || undefined }),
   });
 
-  async function changeStatus(id: number, newStatus: string) {
-    await api.updateFindingStatus(id, newStatus);
-    queryClient.invalidateQueries({ queryKey: ["findings"] });
-  }
-
   return (
-    <div>
-      <h2>{pl["findings.title"]}</h2>
-      <div className="card">
-        <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem" }}>
-          <select value={module} onChange={(e) => setModule(e.target.value)}>
-            <option value="">{pl["findings.filter.module"]}</option>
-            <option value="m1">M1</option>
-            <option value="m2">M2</option>
-            <option value="m3">M3</option>
-          </select>
-          <select value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">{pl["findings.filter.status"]}</option>
-            <option value="new">{pl["findings.status.new"]}</option>
-            <option value="in_review">{pl["findings.status.in_review"]}</option>
-            <option value="confirmed">{pl["findings.status.confirmed"]}</option>
-            <option value="dismissed">{pl["findings.status.dismissed"]}</option>
-            <option value="escalated">{pl["findings.status.escalated"]}</option>
-          </select>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Moduł</th>
-              <th>Score</th>
-              <th>Status</th>
-              <th>Data</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {(data || []).map((finding) => (
-              <tr key={finding.id}>
-                <td>
-                  <Link to={`/findings/${finding.id}`}>#{finding.id}</Link>
-                </td>
-                <td>
-                  <span className={`badge badge-${finding.module}`}>{finding.module.toUpperCase()}</span>
-                </td>
-                <td>{finding.score.toFixed(2)}</td>
-                <td>{finding.status}</td>
-                <td>{new Date(finding.created_at).toLocaleString("pl-PL")}</td>
-                <td>
-                  <select value={finding.status} onChange={(e) => changeStatus(finding.id, e.target.value)}>
-                    <option value="new">{pl["findings.status.new"]}</option>
-                    <option value="in_review">{pl["findings.status.in_review"]}</option>
-                    <option value="confirmed">{pl["findings.status.confirmed"]}</option>
-                    <option value="dismissed">{pl["findings.status.dismissed"]}</option>
-                    <option value="escalated">{pl["findings.status.escalated"]}</option>
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <>
+      <h1 className="page__title">{pl["findings.title"]}</h1>
+
+      <div className="filters">
+        <Chips
+          label={pl["common.module"]}
+          value={module}
+          onChange={setModule}
+          options={MODULES.map((m) => ({ value: m.id, label: m.short }))}
+        />
+        <Chips
+          label={pl["common.status"]}
+          value={status}
+          onChange={setStatus}
+          options={STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))}
+        />
       </div>
-    </div>
+
+      {isError && <p className="notice">{pl["common.error"]}</p>}
+      {isSuccess && data.length === 0 && <p className="empty">{pl["findings.empty"]}</p>}
+
+      <ul className="rows">
+        {(data ?? []).map((f) => (
+          <li key={f.id}>
+            <Link to={`/findings/${f.id}`} className="row row--wide">
+              <span className="row__id">#{f.id}</span>
+              <ModuleTag module={f.module} />
+              <Ruler score={f.score} module={f.module} />
+              <span className={`score${f.score >= HIGH_RISK ? " score--high" : ""}`}>{f.score.toFixed(2)}</span>
+              <span className={`status status--${f.status}`}>{statusLabel(f.status)}</span>
+              <span className="row__meta">{formatDate(f.created_at)}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

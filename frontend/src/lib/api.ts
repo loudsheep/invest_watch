@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:47800";
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -39,6 +39,27 @@ export interface FindingDetail extends Finding {
   screenshot_url: string | null;
 }
 
+export interface CaseRow {
+  id: number;
+  primary_entity_id: number;
+  finding_ids: number[] | null;
+  description: string | null;
+  status: string;
+  created_at: string;
+}
+
+export interface CaseDetail {
+  id: number;
+  findings: { id: number; module: string; score: number; document_id: number }[];
+}
+
+export interface CurrentUser {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+}
+
 export interface CalibrationMetrics {
   module: string;
   threshold: number;
@@ -52,7 +73,7 @@ export interface CalibrationMetrics {
 export const api = {
   login: (username: string, password: string) =>
     request("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
-  me: () => request("/api/auth/me"),
+  me: () => request<CurrentUser>("/api/auth/me"),
   logout: () => request("/api/auth/logout", { method: "POST" }),
 
   listFindings: (params: Record<string, string | number | undefined>) => {
@@ -68,8 +89,8 @@ export const api = {
   findingsTrend: () => request<{ day: string; module: string; count: number }[]>("/api/findings/trend"),
   findingsCounters: () => request<{ by_module: Record<string, number>; high_risk: number }>("/api/findings/counters"),
 
-  listCases: () => request("/api/cases"),
-  getCase: (id: number) => request(`/api/cases/${id}`),
+  listCases: () => request<CaseRow[]>("/api/cases"),
+  getCase: (id: number) => request<CaseDetail>(`/api/cases/${id}`),
   getCaseGraph: (id: number) => request(`/api/cases/${id}/graph`),
 
   listEntities: (q?: string) => request(`/api/entities${q ? `?q=${encodeURIComponent(q)}` : ""}`),

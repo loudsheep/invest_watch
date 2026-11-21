@@ -9,7 +9,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/init.sql:/docker-entrypoint-initdb.d/01-init.sql
     ports:
-      - "5433:5432"
+      - "47432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U investwatch"]
       interval: 10s
@@ -19,7 +19,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6380:6379"
+      - "47379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -33,7 +33,7 @@ services:
     image: dxflrs/garage:v2.1.0
     restart: unless-stopped
     ports:
-      - "3900:3900"
+      - "47900:3900"
     volumes:
       - ./garage/garage.toml:/etc/garage.toml:ro
       - garage_meta:/var/lib/garage/meta
@@ -41,8 +41,10 @@ services:
 
   ollama:
     image: ollama/ollama:latest
+    profiles:
+      - ollama
     ports:
-      - "11434:11434"
+      - "47434:11434"
     volumes:
       - ollama_data:/root/.ollama
     environment:
@@ -61,7 +63,7 @@ services:
     entrypoint: /bin/sh
     command:
       - -c
-      - "ollama pull ${LLM_MODEL:-gemma2:4b} && sleep 1000000"
+      - "ollama pull ${OLLAMA_MODEL:-gemma3:4b} && sleep 1000000"
     environment:
       - OLLAMA_HOST=http://ollama:11434
     profiles:
@@ -70,7 +72,7 @@ services:
   searxng:
     image: searxng/searxng:latest
     ports:
-      - "8888:8080"
+      - "47888:8080"
     volumes:
       - ./infra/searxng-settings.yml:/etc/searxng/settings.yml:ro
     environment:
@@ -82,16 +84,20 @@ services:
       retries: 3
 
   proxy-1:
-    image: tinyproxy:latest
+    image: vimagick/tinyproxy:latest
+    profiles:
+      - proxy
     ports:
-      - "8118:8118"
+      - "47118:8118"
     environment:
       - TINYPROXY_TIMEOUT=600
 
   proxy-2:
-    image: tinyproxy:latest
+    image: vimagick/tinyproxy:latest
+    profiles:
+      - proxy
     ports:
-      - "8119:8118"
+      - "47119:8118"
     environment:
       - TINYPROXY_TIMEOUT=600
 
@@ -112,7 +118,7 @@ services:
       context: .
       dockerfile: services/api/Dockerfile
     ports:
-      - "8000:8000"
+      - "47800:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -127,8 +133,9 @@ services:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-GK0123456789abcdef01234567}
       S3_SECRET_KEY: ${S3_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       S3_BUCKET: ${S3_BUCKET:-investwatch-evidence}
-      LLM_BASE_URL: http://ollama:11434
-      LLM_MODEL: ${LLM_MODEL:-gemma2:4b}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-google/gemma-3-12b-it}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
       DEBUG: "false"
     volumes:
@@ -178,8 +185,9 @@ services:
     environment:
       DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
       REDIS_URL: redis://redis:6379
-      LLM_BASE_URL: http://ollama:11434
-      LLM_MODEL: ${LLM_MODEL:-gemma2:4b}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-google/gemma-3-12b-it}
       DEBUG: "false"
     volumes:
       - ./common:/app/common:ro
@@ -208,9 +216,9 @@ services:
     build:
       context: ./frontend
     ports:
-      - "5173:5173"
+      - "47173:5173"
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=http://localhost:47800
     depends_on:
       - api
     volumes:
@@ -220,7 +228,7 @@ services:
     build:
       context: ./demo-sites
     ports:
-      - "8080:8080"
+      - "47080:8080"
     environment:
       - PORT=8080
 

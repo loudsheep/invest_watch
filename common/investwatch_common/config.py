@@ -11,8 +11,10 @@ class Settings:
         "S3_SECRET_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     )
     s3_bucket: str = os.getenv("S3_BUCKET", "investwatch-evidence")
-    llm_base_url: str = os.getenv("LLM_BASE_URL", "http://localhost:11434")
-    llm_model: str = os.getenv("LLM_MODEL", "gemma:4b")
+    # Any OpenAI-compatible endpoint: OpenRouter, or Ollama via its /v1 API.
+    llm_base_url: str = os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1")
+    llm_api_key: str = os.getenv("LLM_API_KEY", "")
+    llm_model: str = os.getenv("LLM_MODEL", "google/gemma-3-12b-it")
     jwt_secret: str = os.getenv("JWT_SECRET", "dev-secret-change-in-production")
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 8

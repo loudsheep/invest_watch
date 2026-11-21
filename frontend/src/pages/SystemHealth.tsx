@@ -1,7 +1,12 @@
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Link } from "react-router-dom";
 import pl from "../i18n/pl.json";
 import Loading from "../components/Loading";
 import QueryError from "../components/QueryError";
+import ModuleBadge from "../components/ModuleBadge";
+import RiskCell from "../components/RiskCell";
 import { api } from "../lib/api";
 
 const labels = pl as Record<string, string>;
@@ -30,6 +35,13 @@ export default function SystemHealth() {
     queryFn: api.systemHealth,
     refetchInterval: REFRESH_MS,
   });
+
+  const [history, setHistory] = useState<{ time: string; scraper: number; ai: number }[]>([]);
+  useEffect(() => {
+    if (!data) return;
+    const time = new Date(dataUpdatedAt).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    setHistory((prev) => [...prev, { time, scraper: data.queues.scraping ?? 0, ai: data.queues.ai ?? 0 }].slice(-60));
+  }, [data, dataUpdatedAt]);
 
   const lastCrawl = data?.collectors
     .map((c) => (c.last_crawl_at ? parseUtc(c.last_crawl_at) : null))
@@ -122,6 +134,54 @@ export default function SystemHealth() {
                     </span>
                   </span>
                   <span className="col-docs mono muted">{service.latency_ms} ms</span>
+                </div>
+              ))}
+            </section>
+          </div>
+
+          <div className="row-split">
+            <section className="panel row-split__main">
+              <div className="panel__head">
+                <h2>Aktywność w ostatniej godzinie</h2>
+                <span className="muted">nowe dokumenty i findingi co 5 min</span>
+              </div>
+              <div className="panel__body">
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart data={data.activity.map((a) => ({ ...a, label: clockTime(parseUtc(a.t)) }))}>
+                    <CartesianGrid vertical={false} stroke="#d8dce4" />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
+                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={24} tick={{ fontSize: 10 }} />
+                    <Tooltip />
+                    <Bar dataKey="documents" name="dokumenty" fill="#94a3b8" isAnimationActive={false} />
+                    <Bar dataKey="findings" name="findingi" fill="#3a5bd9" isAnimationActive={false} />
+                  </BarChart>
+                </ResponsiveContainer>
+                <p className="queue-bars__head">
+                  <span className="mono">długość kolejek (próbki co {REFRESH_MS / 1000} s)</span>
+                </p>
+                <ResponsiveContainer width="100%" height={110}>
+                  <LineChart data={history}>
+                    <XAxis dataKey="time" hide />
+                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={24} tick={{ fontSize: 10 }} />
+                    <Tooltip />
+                    <Line type="stepAfter" dataKey="scraper" name="scraper" stroke="#14213d" dot={false} isAnimationActive={false} />
+                    <Line type="stepAfter" dataKey="ai" name="ai" stroke="#3a5bd9" dot={false} isAnimationActive={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+
+            <section className="panel row-split__side">
+              <div className="panel__head">
+                <h2>Ostatnie findingi</h2>
+              </div>
+              {data.recent_findings.map((f) => (
+                <div className="table-row" key={f.id}>
+                  <span className="col-grow">
+                    <ModuleBadge module={f.module} /> <Link to={`/findings/${f.id}`}>{f.title || `Finding #${f.id}`}</Link>
+                    <p className="muted mono">{clockTime(parseUtc(f.created_at))}</p>
+                  </span>
+                  <RiskCell score={f.score} />
                 </div>
               ))}
             </section>

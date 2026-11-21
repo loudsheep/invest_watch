@@ -5,6 +5,7 @@ import pl from "../i18n/pl.json";
 import Loading from "../components/Loading";
 import { Criteria, Entities, Metrics, ModuleFacts, quotesFor } from "../components/FindingFacts";
 import ModuleBadge from "../components/ModuleBadge";
+import ShotOverlay from "../components/ShotOverlay";
 import QueryError from "../components/QueryError";
 import StatusBadge from "../components/StatusBadge";
 import { API_URL, api } from "../lib/api";
@@ -79,7 +80,7 @@ export default function FindingDetail() {
             </div>
             {screenshot ? (
               <div className="panel__body">
-                <img className="shot" src={screenshot} alt="Zrzut ekranu zapisany jako dowód" />
+                <ShotOverlay src={screenshot} styles={data.computed_styles} />
               </div>
             ) : (
               <p className="empty">Brak zrzutu ekranu dla tego findingu.</p>

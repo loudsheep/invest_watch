@@ -13,6 +13,7 @@ import FindingDetail from "./pages/FindingDetail";
 import Calibration from "./pages/Calibration";
 import Cases from "./pages/Cases";
 import SystemHealth from "./pages/SystemHealth";
+import Settings from "./pages/Settings";
 import ScanNow from "./pages/ScanNow";
 import Login from "./pages/Login";
 
@@ -111,6 +112,9 @@ export default function App() {
           <NavLink to="/system" className="tabs__link">
             {pl["nav.system"]}
           </NavLink>
+          <NavLink to="/settings" className="tabs__link">
+            {pl["nav.settings"]}
+          </NavLink>
         </nav>
         <span className="topbar__spacer" />
         <span className={`live${connected ? " live--on" : ""}`} role="status">
@@ -142,6 +146,7 @@ export default function App() {
           <Route path="/calibration" element={<Calibration />} />
           <Route path="/scan" element={<ScanNow />} />
           <Route path="/system" element={<SystemHealth />} />
+          <Route path="/settings" element={<Settings />} />
         </Routes>
       </main>
 

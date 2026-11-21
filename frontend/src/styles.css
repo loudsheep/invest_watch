@@ -2140,3 +2140,46 @@ textarea.input {
   color: var(--risk-critical);
   font-size: 12px;
 }
+
+.shot-wrap {
+  position: relative;
+}
+
+.shot-box {
+  position: absolute;
+  border: 2px solid;
+  pointer-events: none;
+}
+
+.shot-box--profit {
+  border-color: #16a34a;
+}
+
+.shot-box--risk {
+  border-color: #dc2626;
+}
+
+.shot-box__label {
+  position: absolute;
+  top: -20px;
+  left: -2px;
+  padding: 1px 6px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.shot-box--profit .shot-box__label {
+  background: #16a34a;
+}
+
+.shot-box--risk .shot-box__label {
+  background: #dc2626;
+}
+
+.shot-toggle {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+}

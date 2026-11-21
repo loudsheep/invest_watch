@@ -102,6 +102,26 @@ export interface SystemHealth {
   }[];
   proxies: { url: string; failures: number; circuit_open: boolean }[];
   services: { name: string; ok: boolean; latency_ms: number }[];
+  activity: { t: string; documents: number; findings: number }[];
+  recent_findings: { id: number; module: string; score: number; title: string | null; created_at: string }[];
+}
+
+export interface RegistrySyncSummary {
+  at: string;
+  created: number;
+  updated: number;
+  providers: Record<string, { records: number; origin: "live" | "snapshot" }>;
+}
+
+export interface AppSettings {
+  settings: { m3_suppress_authorized_domains: boolean };
+  sources: { name: string; type: string | null; enabled: boolean; last_crawl_at: string | null }[];
+  registry: {
+    entities_by_source: Record<string, number>;
+    authorized: number;
+    unauthorized: number;
+    last_sync: RegistrySyncSummary | null;
+  };
 }
 
 export interface CaseDetail {
@@ -152,6 +172,13 @@ export const api = {
   listCases: () => request<CaseRow[]>("/api/cases"),
   getCase: (id: number) => request<CaseDetail>(`/api/cases/${id}`),
   getCaseGraph: (id: number) => request<CaseGraph>(`/api/cases/${id}/graph`),
+  getSettings: () => request<AppSettings>("/api/settings"),
+  updateSetting: (key: string, value: unknown) =>
+    request(`/api/settings/${key}`, { method: "PUT", body: JSON.stringify({ value }) }),
+  updateSource: (name: string, enabled: boolean) =>
+    request(`/api/settings/sources/${name}`, { method: "PUT", body: JSON.stringify({ enabled }) }),
+  runSource: (name: string) => request(`/api/settings/sources/${name}/run`, { method: "POST" }),
+  syncRegistry: () => request("/api/settings/registry-sync", { method: "POST" }),
   systemHealth: () => request<SystemHealth>("/api/system/health"),
 
   listEntities: (q?: string) => request(`/api/entities${q ? `?q=${encodeURIComponent(q)}` : ""}`),

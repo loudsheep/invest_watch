@@ -17,6 +17,7 @@ logger = get_logger(__name__)
 
 SCAN_STAGE_CHANNEL = "scan:stages"
 LLM_CANDIDATE_THRESHOLD = 0.6
+RELEVANCE_THRESHOLD = 0.4  # classifier score below which a document is off-topic for the module
 HIGH_RISK_THRESHOLD = 0.8
 LLM_CACHE_PREFIX = "llm_cache:"
 LLM_CACHE_TTL_SECONDS = 86400 * 7
@@ -137,6 +138,8 @@ def process_document(document_id: int, scan_id: str | None = None):
             details = _module_details(db, doc, module)
             rule_score = _rule_signal_score(module, details)
             head_score = score_with_fallback(module, embedding, get_topic_vectors(module))
+            if head_score < RELEVANCE_THRESHOLD:
+                continue  # rules only measure how bad a relevant document is
             combined_score = max(rule_score, head_score)
 
             threshold = _get_threshold(module)

@@ -5,6 +5,7 @@ interface Criterion {
   id: string;
   description: string;
   legal_basis: string;
+  applicable?: boolean;
   score: number;
   weight: number;
   evidence: string | null;
@@ -112,8 +113,8 @@ function M2({ data }: { data: FindingDetail }) {
         <h2 className="section__title">{pl["finding.m2.title"]}</h2>
         <ul className="criteria">
           {criteria.map((c) => (
-            <li key={c.id} className={c.score >= 0.5 ? "criteria__ok" : "criteria__fail"}>
-              <span className="criteria__score">{Math.round(c.score * 100)}%</span>
+            <li key={c.id} className={c.applicable === false || c.score >= 0.5 ? "criteria__ok" : "criteria__fail"}>
+              <span className="criteria__score">{c.applicable === false ? pl["finding.m2.notApplicable"] : `${Math.round(c.score * 100)}%`}</span>
               <span className="criteria__body">
                 <strong>{c.description}</strong>
                 <span className="facts__meta">

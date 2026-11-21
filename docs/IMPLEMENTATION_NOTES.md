@@ -60,6 +60,11 @@ alongside `docs/OPEN_QUESTIONS.md` for what's still missing.
 - M1 now analyses raw content (normalization replaced URLs, so `?ref=` was never detected) and the promo-code regex skips the word "promocyjnym".
 - Scraper kicks off `dataset` and `demo-sites` once at worker start.
 
+## Relevance gating (ai-worker)
+
+- A module only creates a finding when the classifier score is >= `RELEVANCE_THRESHOLD` (0.4); rules measure how bad a relevant document is, they do not decide relevance. Before this, M2 scored 1.00 for any page without a risk warning (e.g. a sports article). Score is still `max(rule, classifier)` after the gate: a product would cap demo findings below the 0.8 alert level (cold-start classifier tops out around 0.7).
+- M2 criteria can carry `applies_when` (regex) in `config/m2_rules.yaml`; criteria whose subject the text never mentions (CFD, past performance, forecasts) are skipped, not weighted, and shown as "n/d" in the UI.
+
 ## Known rough edges worth a second pass
 
 - No automated tests yet (pytest/vitest wired into CI but no test files exist). Given the deadline, correctness was prioritized over test coverage for this first pass - add tests before relying on this for anything beyond the demo.

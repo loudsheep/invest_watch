@@ -105,6 +105,7 @@
   "finding.m2.riskFont": "Ostrzeżenie o ryzyku",
   "finding.m2.profitFont": "Obietnica zysku",
   "finding.m2.ratio": "Stosunek wielkości",
+  "finding.m2.notApplicable": "n/d",
   "finding.m2.noProfit": "Nie znaleziono obietnicy zysku do porównania.",
   "finding.m3.title": "Oferta usługi doradczej",
   "finding.m3.offer": "Frazy wskazujące na doradztwo",

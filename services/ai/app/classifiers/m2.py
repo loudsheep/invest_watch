@@ -86,6 +86,21 @@ def evaluate(text: str, computed_styles: dict | None = None) -> dict:
     total_weight = 0.0
 
     for criterion in rules["criteria"]:
+        applies_when = criterion.get("applies_when")
+        if applies_when and not re.search(applies_when, text, re.IGNORECASE):
+            criteria_results.append(
+                {
+                    "id": criterion["id"],
+                    "description": criterion["description"],
+                    "legal_basis": criterion["legal_basis"],
+                    "applicable": False,
+                    "score": 1.0,
+                    "weight": criterion["weight"],
+                    "evidence": None,
+                }
+            )
+            continue
+
         detector = criterion["detector"]
         if detector == "regex":
             score, evidence = _regex_criterion_score(text, criterion)
@@ -105,6 +120,7 @@ def evaluate(text: str, computed_styles: dict | None = None) -> dict:
                 "id": criterion["id"],
                 "description": criterion["description"],
                 "legal_basis": criterion["legal_basis"],
+                "applicable": True,
                 "score": score,
                 "weight": weight,
                 "evidence": evidence,

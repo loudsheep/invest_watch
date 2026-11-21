@@ -1,4 +1,5 @@
 from .orm import (
+    AppSetting,
     AuditLog,
     Case,
     Document,
@@ -12,6 +13,7 @@ from .orm import (
 )
 
 __all__ = [
+    "AppSetting",
     "User",
     "Entity",
     "EntityAlias",

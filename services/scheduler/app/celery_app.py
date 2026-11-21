@@ -3,6 +3,7 @@ from pathlib import Path
 import yaml
 from celery import Celery
 from celery.schedules import schedule
+from celery.signals import worker_ready
 from investwatch_common.celery_routes import TASK_ROUTES
 from investwatch_common.config import settings
 from investwatch_common.logging import configure_logging
@@ -49,3 +50,8 @@ def _build_beat_schedule() -> dict:
 celery_app.conf.task_routes = TASK_ROUTES
 celery_app.conf.beat_schedule = _build_beat_schedule()
 celery_app.conf.timezone = "Europe/Warsaw"
+
+
+@worker_ready.connect
+def _sync_registry_on_start(**_kwargs):
+    celery_app.send_task("scheduler.tasks.registry_sync")

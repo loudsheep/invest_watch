@@ -16,40 +16,13 @@ logger = get_logger(__name__)
 
 @celery_app.task(name="scheduler.tasks.registry_sync")
 def registry_sync():
-    """Re-reads data/registry_seed.json for new/changed entities. The real
-    KNF/ESMA sync endpoints were not available at build time (see
-    docs/OPEN_QUESTIONS.md); this currently re-applies the local snapshot,
-    which is safe to run repeatedly (upsert by name)."""
-    import json
-    from pathlib import Path
-
-    from investwatch_common.models import Entity, EntityAlias
-
-    path = Path("/app/data/registry_seed.json")
-    if not path.exists():
-        logger.warning("registry_seed_missing")
-        return
+    """Pulls the public KNF lists (investment firms, banks, foreign branches, notified
+    foreign firms, public warnings); an unreachable list falls back to data/registry_knf.json."""
+    from .registry.sync import run
 
     db = SessionLocal()
     try:
-        registry = json.loads(path.read_text(encoding="utf-8"))
-        for entity_data in registry.get("entities", []):
-            entity = db.query(Entity).filter(Entity.name == entity_data["name"]).first()
-            if entity is None:
-                entity = Entity(
-                    name=entity_data["name"],
-                    type=entity_data.get("type"),
-                    authorized=entity_data.get("authorized"),
-                    source=entity_data.get("source"),
-                    domains=entity_data.get("domains", []),
-                )
-                db.add(entity)
-                db.commit()
-                db.refresh(entity)
-                for alias in entity_data.get("aliases", []):
-                    db.add(EntityAlias(entity_id=entity.id, alias=alias))
-                db.commit()
-        logger.info("registry_sync_complete", count=len(registry.get("entities", [])))
+        return run(db)
     finally:
         db.close()
 

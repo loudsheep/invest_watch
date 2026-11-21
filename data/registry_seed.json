@@ -14,19 +14,6 @@
       ]
     },
     {
-      "name": "mBank S.A. - Dom Maklerski",
-      "aliases": [
-        "mBank DM",
-        "mDM"
-      ],
-      "type": "investment_firm",
-      "authorized": true,
-      "source": "knf",
-      "domains": [
-        "mbank.pl"
-      ]
-    },
-    {
       "name": "Plus500CY Ltd",
       "aliases": [
         "Plus500"
@@ -87,45 +74,6 @@
       "source": "warning_list",
       "domains": [
         "partner-wealth-demo.local"
-      ]
-    },
-    {
-      "name": "Dom Maklerski BOŚ S.A.",
-      "aliases": [
-        "DM BOŚ",
-        "BOSSA"
-      ],
-      "type": "investment_firm",
-      "authorized": true,
-      "source": "knf",
-      "domains": [
-        "bossa.pl"
-      ]
-    },
-    {
-      "name": "Bank Pekao S.A. - Biuro Maklerskie",
-      "aliases": [
-        "Pekao Biuro Maklerskie",
-        "Pekao BM"
-      ],
-      "type": "investment_firm",
-      "authorized": true,
-      "source": "knf",
-      "domains": [
-        "pekao.com.pl"
-      ]
-    },
-    {
-      "name": "Powszechna Kasa Oszczędności Bank Polski S.A. - Biuro Maklerskie",
-      "aliases": [
-        "PKO Biuro Maklerskie",
-        "PKO BM"
-      ],
-      "type": "investment_firm",
-      "authorized": true,
-      "source": "knf",
-      "domains": [
-        "pkobp.pl"
       ]
     },
     {
@@ -241,6 +189,212 @@
       "source": "esma",
       "domains": [
         "freedom24.com"
+      ]
+    },
+    {
+      "name": "mBank S.A.",
+      "aliases": [
+        "mBank",
+        "mBank Dom Maklerski",
+        "mBank S.A. - Dom Maklerski"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "mbank.pl"
+      ]
+    },
+    {
+      "name": "ING Bank Śląski S.A.",
+      "aliases": [
+        "ING Bank Śląski"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "ing.pl"
+      ]
+    },
+    {
+      "name": "Bank Polska Kasa Opieki S.A.",
+      "aliases": [
+        "Bank Pekao",
+        "Pekao",
+        "Pekao Biuro Maklerskie"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "pekao.com.pl"
+      ]
+    },
+    {
+      "name": "Powszechna Kasa Oszczędności Bank Polski S.A.",
+      "aliases": [
+        "PKO Bank Polski",
+        "PKO BP",
+        "PKO Biuro Maklerskie"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "pkobp.pl"
+      ]
+    },
+    {
+      "name": "Santander Bank Polska S.A.",
+      "aliases": [
+        "Santander Bank Polska",
+        "Santander Biuro Maklerskie"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "santander.pl"
+      ]
+    },
+    {
+      "name": "Bank Millennium S.A.",
+      "aliases": [
+        "Bank Millennium"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "bankmillennium.pl"
+      ]
+    },
+    {
+      "name": "Alior Bank S.A.",
+      "aliases": [
+        "Alior Bank"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "aliorbank.pl"
+      ]
+    },
+    {
+      "name": "BNP Paribas Bank Polska S.A.",
+      "aliases": [
+        "BNP Paribas Bank Polska"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "bnpparibas.pl"
+      ]
+    },
+    {
+      "name": "Bank Handlowy w Warszawie S.A.",
+      "aliases": [
+        "Bank Handlowy",
+        "Citi Handlowy"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "citibankonline.pl",
+        "citihandlowy.pl"
+      ]
+    },
+    {
+      "name": "VeloBank S.A.",
+      "aliases": [
+        "VeloBank"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "velobank.pl"
+      ]
+    },
+    {
+      "name": "Dom Maklerski Banku Ochrony Środowiska S.A.",
+      "aliases": [
+        "DM BOŚ",
+        "BOSSA",
+        "Dom Maklerski BOŚ"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "bossa.pl"
+      ]
+    },
+    {
+      "name": "IPOPEMA Securities S.A.",
+      "aliases": [
+        "IPOPEMA Securities"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "ipopema.pl"
+      ]
+    },
+    {
+      "name": "Michael/Ström Dom Maklerski S.A.",
+      "aliases": [
+        "Michael Ström",
+        "Michael/Ström Dom Maklerski"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "michaelstrom.pl"
+      ]
+    },
+    {
+      "name": "Dom Maklerski Navigator S.A.",
+      "aliases": [
+        "DM Navigator",
+        "Navigator Dom Maklerski"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "dmnavigator.pl"
+      ]
+    },
+    {
+      "name": "Oanda TMS Brokers S.A.",
+      "aliases": [
+        "TMS Brokers",
+        "OANDA TMS Brokers"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "tms.pl"
+      ]
+    },
+    {
+      "name": "CMC Markets Germany GmbH",
+      "aliases": [
+        "CMC Markets"
+      ],
+      "type": "foreign_investment_firm",
+      "authorized": true,
+      "source": "knf_branch",
+      "domains": [
+        "cmcmarkets.com"
       ]
     }
   ]

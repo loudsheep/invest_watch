@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from investwatch_common.db import get_db
-from investwatch_common.models import Finding, Label, User
+from investwatch_common.models import Finding, Label, ModelRun, User
 from investwatch_common.redis_client import get_redis
 from investwatch_common.schemas import CalibrationMetrics
 from sqlalchemy import func
@@ -57,6 +57,39 @@ def get_calibration(module: str, db: Session = Depends(get_db), _user: User = De
         positives=sum(1 for _, label in samples if label),
         pr_curve=pr_curve,
     )
+
+
+@router.get("/{module}/quality")
+def model_quality(module: str, db: Session = Depends(get_db), _user: User = Depends(get_current_user)):
+    """Confusion matrix at the current threshold, score distribution by analyst decision and
+    the history of training runs."""
+    threshold = float(get_redis().get(f"{THRESHOLD_KEY_PREFIX}{module}") or 0.5)
+    samples = _labeled_scores(db, module)
+    matrix = {
+        "tp": sum(1 for s, label in samples if s >= threshold and label),
+        "fp": sum(1 for s, label in samples if s >= threshold and not label),
+        "fn": sum(1 for s, label in samples if s < threshold and label),
+        "tn": sum(1 for s, label in samples if s < threshold and not label),
+    }
+    bins = [{"from": i / 10, "confirmed": 0, "dismissed": 0} for i in range(10)]
+    for score, label in samples:
+        bins[min(9, int(score * 10))]["confirmed" if label else "dismissed"] += 1
+    runs = db.query(ModelRun).filter(ModelRun.module == module).order_by(ModelRun.created_at.desc()).limit(20).all()
+    return {
+        "threshold": threshold,
+        "matrix": matrix,
+        "histogram": bins,
+        "runs": [
+            {
+                "version": r.version,
+                "created_at": r.created_at,
+                "labels": r.labels,
+                "positives": r.positives,
+                "metrics": r.metrics,
+            }
+            for r in runs
+        ],
+    }
 
 
 @router.get("/{module}/uncertain")

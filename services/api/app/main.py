@@ -8,7 +8,19 @@ from investwatch_common import config
 from investwatch_common.logging import configure_logging
 
 from .pubsub_bridge import listen_pubsub
-from .routers import auth, calibration, cases, documents, entities, findings, health, scan, settings, system
+from .routers import (
+    auth,
+    calibration,
+    campaigns,
+    cases,
+    documents,
+    entities,
+    findings,
+    health,
+    scan,
+    settings,
+    system,
+)
 from .socket_manager import sio
 
 configure_logging("api")
@@ -35,6 +47,7 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(findings.router)
 app.include_router(cases.router)
+app.include_router(campaigns.router)
 app.include_router(entities.router)
 app.include_router(calibration.router)
 app.include_router(scan.router)

@@ -118,7 +118,7 @@ def _warnings(client: httpx.Client) -> list[dict]:
                     False,
                     "knf_warning",
                     krs=(m.group(1) if single and (m := KRS_RE.search(ident)) else None),
-                    nip=(m.group(1) if single and (m := NIP_RE.search(ident)) else None),
+                    nip=(re.sub(r"\D", "", m.group(1)) if single and (m := NIP_RE.search(ident)) else None),
                     domains=sorted({d for u in urls if (d := _domain(u))}),
                 )
             )

@@ -39,6 +39,9 @@ class FindingOut(BaseModel):
     score: float
     status: str
     created_at: datetime
+    title: str | None = None
+    domain: str | None = None
+    entity_name: str | None = None
 
     class Config:
         from_attributes = True
@@ -92,6 +95,8 @@ class CalibrationMetrics(BaseModel):
     recall: float
     false_positives: int
     false_negatives: int
+    labeled: int = 0
+    positives: int = 0
     pr_curve: list[dict[str, float]]
 
 

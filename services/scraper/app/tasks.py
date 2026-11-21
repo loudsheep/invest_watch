@@ -121,7 +121,9 @@ def scan_url_now(url: str, scan_id: str):
             collector = OpenWebCollector((source.config if source else {}) or {})
             raw = collector.fetch(url)
             if raw is None:
-                _publish_scan_stage(scan_id, "fetch", "error", "Could not fetch URL")
+                _publish_scan_stage(
+                    scan_id, "fetch", "error", "Nie udało się pobrać strony: sprawdź adres, dostępność lub robots.txt"
+                )
                 return
             _publish_scan_stage(scan_id, "fetch", "done")
 
@@ -129,8 +131,15 @@ def scan_url_now(url: str, scan_id: str):
             _publish_scan_stage(scan_id, "preprocess", "running")
             doc = _store_raw_document(db, source.id if source else 1, raw)
             if doc is None:
-                _publish_scan_stage(scan_id, "preprocess", "done")
-                _publish_scan_stage(scan_id, "done", "done", "Ta strona była już skanowana, wynik jest w findingach")
+                _publish_scan_stage(scan_id, "preprocess", "done", "Duplikat: ta treść jest już w bazie")
+                existing = db.query(Document).filter(Document.content_hash == content_hash(normalize_text(raw.content))).first()
+                finding_ids = [f.id for f in existing.findings] if existing else []
+                message = (
+                    f"Ta treść była już skanowana, istniejące findingi: {len(finding_ids)}"
+                    if finding_ids
+                    else "Ta treść była już skanowana i nie dała żadnego findingu"
+                )
+                _publish_scan_stage(scan_id, "done", "done", message, {"finding_ids": finding_ids})
                 return
             _publish_scan_stage(scan_id, "preprocess", "done")
 

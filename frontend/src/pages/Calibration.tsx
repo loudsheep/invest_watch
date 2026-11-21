@@ -9,6 +9,8 @@ import SoonTag from "../components/SoonTag";
 import { api, type CalibrationMetrics } from "../lib/api";
 import { MODULES, moduleInfo } from "../lib/modules";
 
+const MIN_LABELS = 10;
+
 function fmt(value: number, digits = 2): string {
   return value.toFixed(digits).replace(".", ",");
 }
@@ -62,8 +64,8 @@ export default function Calibration() {
           <p className="page__sub">{pl["calibration.lede"]}</p>
         </div>
         <div className="calib-actions">
-          <span className="muted mono calib-actions__meta is-soon">
-            model, liczba etykiet <SoonTag />
+          <span className="muted mono calib-actions__meta">
+            etykiety: {data?.labeled ?? "-"} (potwierdzone: {data?.positives ?? "-"})
           </span>
           <button className="btn btn--primary" disabled={!isAdmin || retrain.isPending} onClick={() => retrain.mutate()}>
             {retrain.isPending ? `${pl["calibration.retrain"]}...` : pl["calibration.retrain"]}
@@ -96,6 +98,15 @@ export default function Calibration() {
         <p className="saved" role="status">
           {pl["calibration.retrainStarted"]}
         </p>
+      )}
+
+      {data && data.labeled < MIN_LABELS && (
+        <div className="notice" role="status">
+          <p className="notice__text">
+            Za mało etykiet, żeby policzyć precyzję i czułość ({data.labeled} z {MIN_LABELS}). Oznacz findingi tego modułu jako
+            Potwierdzony lub Odrzucony w widoku findingu. Do tego czasu metryki i krzywa poniżej są tylko wartościami domyślnymi.
+          </p>
+        </div>
       )}
 
       {data && (

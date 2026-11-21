@@ -1,17 +1,30 @@
 from datetime import UTC, datetime
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from investwatch_common.db import get_db
 from investwatch_common.models import Document, Finding, Label, Mention, User
 from investwatch_common.schemas import FindingDetail, FindingOut, FindingStatusUpdate, MentionOut
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..audit import record
 from ..auth import get_current_user
 from ..socket_manager import emit_finding_status_changed
 
 router = APIRouter(prefix="/api/findings", tags=["findings"])
+
+def _list_item(finding: Finding) -> FindingOut:
+    doc = finding.document
+    mentions = sorted(doc.mentions, key=lambda m: m.role != "advertised_firm")
+    return FindingOut.model_validate(finding).model_copy(
+        update={
+            "title": doc.title,
+            "domain": urlparse(doc.url).netloc or None,
+            "entity_name": mentions[0].entity.name if mentions else None,
+        }
+    )
+
 
 VALID_STATUSES = {"new", "in_review", "confirmed", "dismissed", "escalated"}
 
@@ -30,7 +43,11 @@ def list_findings(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    query = db.query(Finding).join(Document)
+    query = (
+        db.query(Finding)
+        .join(Document)
+        .options(selectinload(Finding.document).selectinload(Document.mentions).selectinload(Mention.entity))
+    )
     if module:
         query = query.filter(Finding.module == module)
     if status_filter:
@@ -45,9 +62,7 @@ def list_findings(
         query = query.filter(Finding.created_at >= date_from)
     if date_to:
         query = query.filter(Finding.created_at <= date_to)
-    return (
-        query.order_by(Finding.score.desc()).offset(offset).limit(limit).all()
-    )
+    return [_list_item(f) for f in query.order_by(Finding.score.desc()).offset(offset).limit(limit).all()]
 
 
 @router.get("/trend")

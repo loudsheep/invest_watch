@@ -105,6 +105,8 @@ export interface CalibrationMetrics {
   recall: number;
   false_positives: number;
   false_negatives: number;
+  labeled: number;
+  positives: number;
   pr_curve: { threshold: number; precision: number; recall: number }[];
 }
 

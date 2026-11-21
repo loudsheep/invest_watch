@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 
 SCAN_STAGE_CHANNEL = "scan:stages"
 LLM_CANDIDATE_THRESHOLD = 0.6
-RELEVANCE_THRESHOLD = 0.4  # classifier score below which a document is off-topic for the module
+RELEVANCE_THRESHOLD = 0.5  # classifier score below which a document is off-topic for the module
 HIGH_RISK_THRESHOLD = 0.8
 LLM_CACHE_PREFIX = "llm_cache:"
 LLM_CACHE_TTL_SECONDS = 86400 * 7
@@ -134,10 +134,13 @@ def process_document(document_id: int, scan_id: str | None = None):
         _create_mentions(db, doc)
 
         _publish_scan_stage(scan_id, "classify", "running")
+        module_results: dict[str, dict] = {}
+        llm_ran = False
         for module in ("m1", "m2", "m3"):
             details = _module_details(db, doc, module)
             rule_score = _rule_signal_score(module, details)
             head_score = score_with_fallback(module, embedding, get_topic_vectors(module))
+            module_results[module] = {"relevance": round(head_score, 2), "score": None, "finding_id": None}
             if head_score < RELEVANCE_THRESHOLD:
                 continue  # rules only measure how bad a relevant document is
             combined_score = max(rule_score, head_score)
@@ -151,6 +154,7 @@ def process_document(document_id: int, scan_id: str | None = None):
             prompt_version = 1
 
             if combined_score >= LLM_CANDIDATE_THRESHOLD:
+                llm_ran = True
                 _publish_scan_stage(scan_id, "llm", "running")
                 llm_result = _cached_llm_analysis(doc, module)
                 if llm_result:
@@ -173,6 +177,7 @@ def process_document(document_id: int, scan_id: str | None = None):
             db.add(finding)
             db.commit()
             db.refresh(finding)
+            module_results[module].update(score=round(combined_score, 2), finding_id=finding.id)
 
             _aggregate_into_case(db, finding, doc)
 
@@ -190,8 +195,18 @@ def process_document(document_id: int, scan_id: str | None = None):
                     ),
                 )
 
-        _publish_scan_stage(scan_id, "classify", "done")
-        _publish_scan_stage(scan_id, "done", "done")
+        _publish_scan_stage(scan_id, "classify", "done", data={"modules": module_results})
+        if not llm_ran:
+            _publish_scan_stage(scan_id, "llm", "done", "Pominięto: żaden wynik nie przekroczył progu analizy LLM")
+        created = [m for m, r in module_results.items() if r["finding_id"]]
+        if created:
+            message = f"Utworzono findingi: {', '.join(m.upper() for m in created)}"
+        else:
+            message = (
+                "Brak findingów: treść nie dotyczy żadnego modułu "
+                f"(trafność poniżej progu {RELEVANCE_THRESHOLD:.2f}, albo wynik zbyt niski)"
+            )
+        _publish_scan_stage(scan_id, "done", "done", message, {"modules": module_results})
     except Exception as exc:
         logger.exception("process_document_failed", document_id=document_id, error=str(exc))
         _publish_scan_stage(scan_id, "error", "error", str(exc))

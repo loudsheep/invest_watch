@@ -52,6 +52,8 @@ def get_calibration(module: str, db: Session = Depends(get_db), _user: User = De
         recall=current["recall"],
         false_positives=current["false_positives"],
         false_negatives=current["false_negatives"],
+        labeled=len(samples),
+        positives=sum(1 for _, label in samples if label),
         pr_curve=pr_curve,
     )
 

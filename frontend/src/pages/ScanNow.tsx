@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import pl from "../i18n/pl.json";
 import Loading from "../components/Loading";
 import ModuleBadge from "../components/ModuleBadge";
 import QueryError from "../components/QueryError";
-import SoonTag from "../components/SoonTag";
 import { api } from "../lib/api";
 import { socket } from "../lib/socket";
 
@@ -12,7 +12,13 @@ interface StageEvent {
   stage: string;
   status: string;
   message?: string | null;
+  data?: {
+    modules?: Record<string, { relevance: number; score: number | null; finding_id: number | null }>;
+    finding_ids?: number[];
+  };
 }
+
+type ModuleResults = NonNullable<StageEvent["data"]>["modules"];
 
 interface TimedEvent extends StageEvent {
   at: number;
@@ -87,6 +93,9 @@ export default function ScanNow() {
   const failedEvent = events.find((ev) => ev.status === "error");
   const finished = latest.get("done")?.status === "done" || !!failedEvent;
   const inFlight = submitting || (!!scanId && !finished && !timedOut);
+  const doneEvent = latest.get("done");
+  const moduleResults: ModuleResults = (doneEvent?.data?.modules ?? latest.get("classify")?.data?.modules);
+  const findingIds = doneEvent?.data?.finding_ids ?? Object.values(moduleResults ?? {}).flatMap((r) => (r.finding_id ? [r.finding_id] : []));
   const total = finished && startedAt ? ((events[events.length - 1].at - startedAt) / 1000).toFixed(1).replace(".", ",") : null;
 
   function duration(stage: string, index: number): string | null {
@@ -178,22 +187,42 @@ export default function ScanNow() {
               </ul>
             </section>
 
-            <section className="panel row-split__side is-soon">
+            <section className="panel row-split__side">
               <div className="panel__head">
-                <h2>Wstępny wynik</h2>
-                <SoonTag />
+                <h2>Wynik skanu</h2>
               </div>
               <div className="panel__body levels">
-                {["m1", "m2", "m3"].map((m) => (
-                  <div className="levels__row" key={m}>
-                    <span className="levels__label">
-                      <ModuleBadge module={m} />
-                    </span>
-                    <span className="levels__track" />
-                    <span className="levels__count">-</span>
-                  </div>
-                ))}
-                <p className="muted">Wyniki modułów per etap wymagają pola score w zdarzeniu scan_stage.</p>
+                {doneEvent?.message && (
+                  <p className={failedEvent ? "text-critical" : findingIds.length ? "ok-text" : "muted"} role="status">
+                    {doneEvent.message}
+                  </p>
+                )}
+                {["m1", "m2", "m3"].map((m) => {
+                  const result = moduleResults?.[m];
+                  return (
+                    <div className="levels__row" key={m}>
+                      <span className="levels__label">
+                        <ModuleBadge module={m} />
+                      </span>
+                      <span className="levels__track" title="Trafność: jak bardzo treść dotyczy modułu">
+                        {result && <span className="levels__bar" style={{ width: `${result.relevance * 100}%`, background: "var(--brand)" }} />}
+                      </span>
+                      <span className="levels__count">
+                        {result ? result.relevance.toFixed(2).replace(".", ",") : "-"}
+                      </span>
+                    </div>
+                  );
+                })}
+                <p className="muted">Pasek to trafność tematyczna (próg 0,50). Poniżej progu moduł nie tworzy findingu.</p>
+                {findingIds.length > 0 && (
+                  <ul className="levels">
+                    {findingIds.map((id) => (
+                      <li key={id}>
+                        <Link to={`/findings/${id}`}>Finding #{id}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </section>
           </div>

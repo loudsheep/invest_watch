@@ -1,0 +1,16 @@
+title = "InvestWatch gitleaks config"
+
+[extend]
+useDefault = true
+
+# Local-development placeholders documented in .env.example. They are public by design
+# (the Quick Start uses them) and must be replaced outside a local demo.
+[allowlist]
+description = "Documented local-development placeholders, not real credentials"
+regexes = [
+  '''0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef''',
+  '''GK0123456789abcdef01234567''',
+  '''investwatch-dev[a-z-]*''',
+  '''changeme-dev''',
+  '''dev-secret-change-in-production''',
+]

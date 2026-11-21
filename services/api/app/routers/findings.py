@@ -178,6 +178,7 @@ def get_finding(
         document_platform=doc.platform,
         screenshot_url=f"/api/documents/{doc.id}/screenshot" if doc.minio_screenshot_key else None,
         computed_styles=doc.computed_styles,
+        device_screenshots=list((doc.device_screenshots or {}).keys()),
         mentions=[
             MentionOut(
                 entity_id=m.entity_id, entity_name=m.entity.name, role=m.role, authorized=m.entity.authorized

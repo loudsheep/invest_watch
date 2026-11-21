@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from investwatch_common.db import get_db
 from investwatch_common.models import User
 from investwatch_common.schemas import LoginRequest, UserOut
@@ -32,6 +32,14 @@ def logout(response: Response):
     return {"ok": True}
 
 
-@router.get("/me", response_model=UserOut)
-def me(user: User = Depends(get_current_user)):
-    return user
+@router.get("/me", response_model=UserOut | None)
+def me(
+    iw_session: str | None = Cookie(default=None, alias=COOKIE_NAME),
+    db: Session = Depends(get_db),
+):
+    """The signed-in user, or null: an anonymous visitor is not an HTTP error, so the
+    browser console stays clean on the login screen."""
+    try:
+        return get_current_user(iw_session, db)
+    except HTTPException:
+        return None

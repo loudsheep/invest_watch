@@ -3,6 +3,7 @@ from investwatch_common.db import get_db
 from investwatch_common.models import Finding, Label, User
 from investwatch_common.redis_client import get_redis
 from investwatch_common.schemas import CalibrationMetrics
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user, require_admin
@@ -56,6 +57,36 @@ def get_calibration(module: str, db: Session = Depends(get_db), _user: User = De
         positives=sum(1 for _, label in samples if label),
         pr_curve=pr_curve,
     )
+
+
+@router.get("/{module}/uncertain")
+def uncertain_findings(
+    module: str,
+    limit: int = 8,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """Active learning queue: unlabeled findings whose score is closest to the threshold,
+    i.e. the ones where an analyst decision moves the metrics the most."""
+    threshold = float(get_redis().get(f"{THRESHOLD_KEY_PREFIX}{module}") or 0.5)
+    labeled = db.query(Label.finding_id)
+    rows = (
+        db.query(Finding)
+        .filter(Finding.module == module, Finding.score.is_not(None), Finding.id.not_in(labeled))
+        .order_by(func.abs(Finding.score - threshold))
+        .limit(min(limit, 50))
+        .all()
+    )
+    return [
+        {
+            "id": f.id,
+            "score": f.score,
+            "distance": abs(f.score - threshold),
+            "title": f.document.title,
+            "url": f.document.url,
+        }
+        for f in rows
+    ]
 
 
 @router.put("/{module}/threshold")

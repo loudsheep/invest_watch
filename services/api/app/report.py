@@ -79,6 +79,11 @@ def _finding_block(finding: Finding, styles: dict[str, ParagraphStyle]) -> list:
 
     hashes = [["content_hash", doc.content_hash]] + [[name, meta["sha256"]] for name, meta in manifest["files"].items()]
     block.append(Spacer(1, 4))
+    custody = manifest.get("custody")
+    if custody:
+        verdict = "zweryfikowana, pliki niezmienione od zapisu" if custody["verified"] else "NARUSZONA, hash nie zgadza się z zapisem"
+        block.append(_p(f"Integralność dowodów: {verdict} (zapisano {custody['captured_at'][:19]} UTC)", styles["small"]))
+        block.append(_p(f"SHA-256 manifestu: {custody['manifest_sha256']}", styles["small"]))
     for name, digest in hashes:
         block.append(_p(f"SHA-256 {name}: {digest}", styles["small"]))
     return block

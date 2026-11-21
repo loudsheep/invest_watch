@@ -19,15 +19,17 @@ router = APIRouter(prefix="/api/documents", tags=["documents"])
 @router.get("/{document_id}/screenshot")
 def get_screenshot(
     document_id: int,
+    variant: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     doc = db.get(Document, document_id)
-    if doc is None or not doc.minio_screenshot_key:
+    key = (doc.device_screenshots or {}).get(variant) if doc and variant else (doc.minio_screenshot_key if doc else None)
+    if doc is None or not key:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Screenshot not found")
 
-    record(db, user.id, "evidence_access", "document", doc.id, {"key": doc.minio_screenshot_key})
-    data = get_object(doc.minio_screenshot_key)
+    record(db, user.id, "evidence_access", "document", doc.id, {"key": key})
+    data = get_object(key)
     return StreamingResponse(io.BytesIO(data), media_type="image/png")
 
 

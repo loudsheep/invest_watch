@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>InvestWatch - prezentacja</title>
+<style>
+  @page { size: 1280px 720px; margin: 0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; color: #14213d; }
+  .slide { width: 1280px; height: 720px; padding: 56px 72px; page-break-after: always; position: relative; background: #fff; overflow: hidden; }
+  .slide.dark { background: #14213d; color: #fff; }
+  h1 { font-size: 64px; margin: 0 0 16px; letter-spacing: -1px; }
+  h2 { font-size: 40px; margin: 0 0 28px; letter-spacing: -0.5px; }
+  p, li { font-size: 24px; line-height: 1.45; }
+  ul { padding-left: 28px; margin: 0; }
+  li { margin-bottom: 10px; }
+  .sub { font-size: 28px; opacity: 0.8; }
+  .tag { display: inline-block; font-size: 16px; font-weight: 700; padding: 4px 12px; border-radius: 4px; background: #e8ecf5; margin-right: 8px; }
+  .dark .tag { background: #2a3a63; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+  .col { border: 2px solid #d8dce4; border-radius: 8px; padding: 22px; }
+  .col h3 { margin: 0 0 10px; font-size: 26px; }
+  .col p { font-size: 20px; margin: 0; }
+  .flow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  .box { border: 2px solid #14213d; border-radius: 6px; padding: 10px 12px; font-size: 17px; font-weight: 600; background: #f4f6fb; }
+  .arrow { font-size: 26px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .num { font-size: 56px; font-weight: 800; color: #3a5bd9; line-height: 1; }
+  .foot { position: absolute; left: 72px; bottom: 28px; font-size: 14px; opacity: 0.55; }
+  table { border-collapse: collapse; font-size: 20px; width: 100%; }
+  td, th { border-bottom: 1px solid #d8dce4; padding: 10px 12px; text-align: left; }
+</style>
+</head>
+<body>
+
+<section class="slide dark">
+  <h1>InvestWatch</h1>
+  <p class="sub">Autonomiczny system nadzoru treści finansowych w sieci</p>
+  <p style="margin-top:48px"><span class="tag">M1 finfluencerzy</span><span class="tag">M2 informacja o ryzyku</span><span class="tag">M3 shadow advisory</span></p>
+  <p style="position:absolute;bottom:56px;font-size:20px;opacity:.7">HackNation 2026 - zadanie UKNF</p>
+</section>
+
+<section class="slide">
+  <h2>Problem</h2>
+  <ul>
+    <li>Reklamy instrumentów finansowych rozpraszają się po stronach firm, blogach i social mediach.</li>
+    <li>Ręczny nadzór nie nadąża: tysiące treści, zmieniających się w czasie.</li>
+    <li>Trzy pytania nadzorcze: kto reklamuje cudzymi rękami, czy ryzyko jest pokazane uczciwie, kto doradza bez zezwolenia.</li>
+  </ul>
+  <p style="margin-top:36px"><b>InvestWatch</b> zbiera treści, ocenia je modelami open source i oddaje analitykowi gotowe, udokumentowane findingi.</p>
+</section>
+
+<section class="slide">
+  <h2>Rozwiązanie: trzy moduły, jeden obiekt</h2>
+  <div class="cols">
+    <div class="col"><h3>M1 Finfluencerzy</h3><p>Linki afiliacyjne, kody promo, brak oznaczenia reklamy. Powiązanie z firmą z rejestru KNF/ESMA.</p></div>
+    <div class="col"><h3>M2 Ryzyko</h3><p>18 kryteriów z podstawą prawną (art. 44 rozp. 2017/565): czcionka, kontrast, ukrycie, responsywność, prognozy, aprobata KNF.</p></div>
+    <div class="col"><h3>M3 Shadow advisory</h3><p>Oferty doradztwa bez zezwolenia, klony firm i domeny lookalike, wiek domeny (RDAP).</p></div>
+  </div>
+  <p style="margin-top:36px">Wszystkie moduły produkują ten sam <b>finding</b>, agregowany w <b>case</b> wokół podmiotu.</p>
+</section>
+
+<section class="slide">
+  <h2>Architektura</h2>
+  <div class="flow">
+    <div class="box">scheduler (Celery Beat)</div><span class="arrow">→</span>
+    <div class="box">scraper-worker<br><small>Playwright, httpx, yt-dlp, ProxyPool</small></div><span class="arrow">→</span>
+    <div class="box">Redis (kolejki)</div><span class="arrow">→</span>
+    <div class="box">ai-worker<br><small>embeddingi, klasyfikator, reguły M2, LLM</small></div>
+  </div>
+  <div class="flow">
+    <div class="box">Garage (HTML, screenshoty)</div>
+    <div class="box">Postgres + pgvector</div>
+    <div class="box">Ollama (Gemma)</div>
+    <div class="box">SearXNG</div>
+    <div class="box">api: FastAPI + Socket.io</div><span class="arrow">↔</span>
+    <div class="box">frontend: React</div>
+  </div>
+  <ul style="margin-top:36px">
+    <li>Niezależne serwisy, jedna komenda: <code>docker compose up</code>.</li>
+    <li>Kolektory jako pluginy; reguły, taksonomie i źródła w YAML.</li>
+  </ul>
+</section>
+
+<section class="slide">
+  <h2>Pipeline AI: dwa poziomy</h2>
+  <ul>
+    <li><b>Klasyfikator</b> (ms na CPU): embeddingi multilingual-e5 + skalibrowana głowica, score steruje progiem.</li>
+    <li><b>LLM</b> (tylko kandydaci): Gemma przez Ollamę, wynik JSON walidowany Pydantic, cache po <code>hash + model + prompt</code>.</li>
+    <li><b>Reguły M2</b> w YAML: zmiana wymogów UKNF to edycja jednego pliku.</li>
+    <li>Cały stos on-premise, zero płatnych API.</li>
+  </ul>
+</section>
+
+<section class="slide">
+  <h2>M2: wizualna wyraźność ostrzeżenia</h2>
+  <ul>
+    <li>Screenshot + computed styles z DOM: rozmiar czcionki, kontrast WCAG, stopka/legal, przezroczystość.</li>
+    <li>Render na tablecie i telefonie: ucięty lub zbyt mały tekst.</li>
+    <li>Dominacja wyników historycznych, informacja za kliknięciem, aprobata KNF jako argument bezpieczeństwa.</li>
+    <li>Wykrycie usunięcia ostrzeżenia przy ponownym crawlu.</li>
+  </ul>
+  <p style="margin-top:28px">Każde kryterium w UI ma detektor, wagę i podstawę prawną.</p>
+</section>
+
+<section class="slide">
+  <h2>Dowody i raport dla nadzoru</h2>
+  <ul>
+    <li>Zabezpieczenie dowodów: HTML, screenshot, computed styles, SHA-256 i znacznik czasu w Garage.</li>
+    <li>Pakiet dowodów (ZIP + manifest) i raport PDF case'a z hashami.</li>
+    <li>Audit log: zmiany statusów, progów, retrainu i dostępu do dowodów.</li>
+    <li>Graf powiązań: finfluencer - firma - dokument - kod promo - domena.</li>
+    <li>Klaster kampanii: podobne treści po odległości wektorowej (pgvector).</li>
+  </ul>
+</section>
+
+<section class="slide">
+  <h2>Kalibracja i human-in-the-loop</h2>
+  <div class="grid2">
+    <ul>
+      <li>Suwak progu per moduł: natychmiast zmienia FP i FN.</li>
+      <li>Precision / recall i krzywa PR na etykietach analityka.</li>
+      <li>Potwierdzenie lub odrzucenie findingu trafia do zbioru etykiet.</li>
+      <li>"Przetrenuj model" podbija wersję klasyfikatora.</li>
+    </ul>
+    <div class="col"><p>Alerty wysokiego ryzyka w czasie rzeczywistym przez Socket.io, a "Skanuj URL teraz" pokazuje etapy pipeline'u na żywo.</p></div>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>Bezpieczeństwo i RODO</h2>
+  <table>
+    <tr><th>Obszar</th><th>Rozwiązanie</th></tr>
+    <tr><td>Łańcuch dostaw</td><td>pip-audit, npm audit, Trivy w CI; 0 znanych podatności</td></tr>
+    <tr><td>Sekrety</td><td>wyłącznie .env, gitleaks</td></tr>
+    <tr><td>Auth</td><td>JWT w ciasteczku httpOnly, Argon2, role analyst / admin</td></tr>
+    <tr><td>RODO</td><td>minimalizacja, TTL dokumentów bez findingu, dostęp do dowodów audytowany</td></tr>
+    <tr><td>Licencje</td><td>MIT / Apache / BSD, bez GPL i AGPL</td></tr>
+  </table>
+</section>
+
+<section class="slide">
+  <h2>Proces wytwarzania z asystentami AI</h2>
+  <ul>
+    <li>Spec-driven: CONCEPT.md + 21 ADR (MADR) zamiast ustnych ustaleń.</li>
+    <li>AGENTS.md / CLAUDE.md w repo i w każdym serwisie: konwencje, granice, Conventional Commits.</li>
+    <li>Cykl: spec → implementacja AI → testy → review AI → review człowieka → merge.</li>
+    <li>Bramki CI: ruff, eslint (no-console), pytest, pip-audit, npm audit, Trivy, gitleaks.</li>
+  </ul>
+</section>
+
+<section class="slide">
+  <h2>Roadmapa wdrożenia w UKNF</h2>
+  <ul>
+    <li><b>Teraz:</b> MVP on-premise, jedna komenda, dane demonstracyjne.</li>
+    <li><b>Pilotaż:</b> żywa synchronizacja rejestrów KNF/ESMA, OIDC (Keycloak), kolektory Facebook i Instagram za zgodą na sesję.</li>
+    <li><b>Produkcja:</b> inferencja na GPU, Prometheus + Grafana, active learning na decyzjach analityków.</li>
+  </ul>
+</section>
+
+<section class="slide dark">
+  <h1>Dziękujemy</h1>
+  <p class="sub">InvestWatch - na straży inwestorów</p>
+  <p style="margin-top:40px;font-size:20px;opacity:.7">Repozytorium, README (Quick Start) i dokumentacja: docs/</p>
+</section>
+
+</body>
+</html>

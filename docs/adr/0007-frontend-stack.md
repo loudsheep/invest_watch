@@ -1,6 +1,6 @@
 # 0007. Frontend stack
 
-- Status: Accepted
+- Status: Partially superseded by [0021](0021-frontend-styling-and-default-llm.md) (shadcn/ui and Tailwind)
 - Date: 2026-11-21
 
 ## Context

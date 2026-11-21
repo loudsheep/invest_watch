@@ -10,7 +10,7 @@ Format: [MADR](https://adr.github.io/madr/). One decision per file, numbered seq
 | [0004](0004-registry-and-entity-resolution.md) | Regulatory registry data and entity resolution | Accepted |
 | [0005](0005-caching-strategy.md) | Content-hash based layered caching | Accepted |
 | [0006](0006-python-backend-and-task-queue.md) | Python backend, Celery task queue, service split | Accepted |
-| [0007](0007-frontend-stack.md) | Frontend stack | Accepted |
+| [0007](0007-frontend-stack.md) | Frontend stack | Partially superseded by 0021 |
 | [0008](0008-unified-data-model.md) | Unified finding model, cases and analyst feedback loop | Accepted |
 | [0009](0009-m2-rules-as-configuration.md) | M2 risk disclosure rules as YAML configuration | Accepted |
 | [0010](0010-discovery-and-focused-crawling.md) | Per-module discovery and focused crawling | Accepted |
@@ -24,3 +24,4 @@ Format: [MADR](https://adr.github.io/madr/). One decision per file, numbered seq
 | [0018](0018-project-languages.md) | Project languages | Accepted |
 | [0019](0019-gdpr-and-observability.md) | GDPR data handling and observability | Accepted |
 | [0020](0020-object-storage-garage.md) | Object storage: Garage instead of MinIO | Accepted |
+| [0021](0021-frontend-styling-and-default-llm.md) | Hand-written frontend styling and Ollama as default LLM endpoint | Accepted |

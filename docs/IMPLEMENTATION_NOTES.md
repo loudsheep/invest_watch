@@ -42,7 +42,7 @@ alongside `docs/OPEN_QUESTIONS.md` for what's still missing.
 
 ## frontend/
 
-- Plain React + Vite + TypeScript + hand-written CSS, not shadcn/ui/Tailwind as ADR-0007 specifies - a scope cut to get all P0 views working before the deadline. Views: Przegląd, Findingi (filterable, status change), Case'y (list + graph), Zdrowie systemu, Kalibracja (slider + PR curve + retrain), Skanuj URL (live pipeline stages via Socket.io room per scan).
+- Plain React + Vite + TypeScript + hand-written CSS (ADR-0021). Views: Przegląd, Findingi (filters, text search, status change with note), Case'y (list, graph, PDF report), Zdrowie systemu, Kalibracja, Skanuj URL (live stages over Socket.io).
 - ESLint configured with `no-console` per AGENTS.md.
 
 ## demo-sites/
@@ -67,9 +67,17 @@ alongside `docs/OPEN_QUESTIONS.md` for what's still missing.
 
 ## Known rough edges worth a second pass
 
-- No automated tests yet (pytest/vitest wired into CI but no test files exist). Given the deadline, correctness was prioritized over test coverage for this first pass - add tests before relying on this for anything beyond the demo.
-- `services/ai/app/classifiers/head.py` persists trained models to a local `/app/models` volume inside the container - this is lost on container recreation unless a volume is mounted. Fine for a single demo run; add a named volume if retraining needs to survive restarts.
+- Test coverage is thin: `services/ai/tests` covers the M2 rules, `services/scraper/tests` the re-crawl change detection. No frontend tests.
+- Trained classifier heads persist in the `ai_models` named volume.
 
 ## LLM via OpenAI-compatible API
 
-The LLM client calls `/chat/completions` instead of Ollama's native `/api/generate`. Default endpoint is OpenRouter (no local model needed for development); Ollama stays available behind `--profile ollama` using its `/v1` endpoint, so ADR-0002's self-hosted deployment remains a configuration change.
+The LLM client calls `/chat/completions` instead of Ollama's native `/api/generate`. Default endpoint is the Ollama service in compose (`http://ollama:11434/v1`, `gemma3:4b`, pulled by `ollama-init`); any other OpenAI-compatible endpoint is a configuration change (ADR-0002, ADR-0021).
+
+## Evidence, reports and discovery
+
+- `GET /api/documents/{id}/evidence` and `evidence.zip`: SHA-256 manifest and a package (HTML, screenshot, computed styles, `manifest.json`). Every access is audit-logged.
+- `GET /api/cases/{id}/report.pdf`: supervisory note (ReportLab, DejaVu Sans for Polish glyphs) with failed M2 criteria, legal bases and evidence hashes.
+- `GET /api/findings/{id}/similar`: nearest documents by pgvector cosine distance (campaign clusters).
+- Collectors get discovery config from `config/taxonomies.yaml` and the authorized registry domains (`services/scraper/app/discovery.py`), so open-web and social sources crawl without hand-maintained query lists.
+- M3 adds an RDAP domain-age signal; a lookalike domain younger than a year scores 0.9.

@@ -1,29 +1,25 @@
-# Open questions (unchanged from CONCEPT.md section 19, tracked here for implementation impact)
+# Open questions and known gaps
 
-1. **M2 risk-requirements attachment** - not available while building. `config/m2_rules.yaml` encodes a best-effort reading of MiFID II art. 24(3), delegated reg. 2017/565 art. 44, and the ESMA CFD warning. Once the real attachment arrives, only that YAML file needs editing - no code changes.
-2. **Dataset format/labels from the USB drive** - unknown at build time. `services/scraper/app/collectors/dataset.py` accepts either a `documents.jsonl` file or one `*.json` file per document in `data/dataset/`, each with `url/platform/author/title/published_at/content/html` fields and an optional `label`. Adjust `_to_raw_document` if the real format differs.
-3. **Whether one social collector is enough for demo** - built only YouTube (yt-dlp) for now; TikTok/Instagram are not implemented. Adding one means a new `Collector` subclass in `services/scraper/app/collectors/` plus a `sources` row.
-4. **Labeled reference set for FP/FN** - none exists yet. The calibration panel computes precision/recall from analyst-confirmed/dismissed findings (the `labels` table), which starts empty. Expect the PR curve to be meaningless until a few dozen findings are triaged (or seed `labels` manually for demo).
+## Resolved
 
-# Implementation gaps vs. CONCEPT.md (by priority)
+1. **M2 risk-requirements attachment** - arrived. `config/m2_rules.yaml` implements all 18 criteria (12 split into 12a/12b), each with legal basis; `ref` is the number from the attachment. Visual criteria (4, 5, 6, 8, 13) use DOM computed styles and tablet/phone viewport renders, so they apply to pages fetched by the browser collectors, not to plain-text dataset samples (shown as "n/d").
+2. **Dataset format** - `services/scraper/app/collectors/dataset.py` accepts `documents.jsonl` or one `*.json` per document in `data/dataset/` (fields `url/platform/author/title/published_at/content/html`). Adjust `_to_raw_document` if the real format differs.
+3. **Labeled reference set** - `data/reference_labels.json` holds ground truth for the demo-sites fixtures; the ai-worker labels findings on those pages on creation, so calibration shows precision/recall from the first scan. Analyst decisions (confirm/dismiss) add to the same `labels` table.
+4. **Social collectors** - YouTube and TikTok (public profiles and videos via yt-dlp). Facebook and Instagram are not implemented: they need a logged-in session, which is out of scope for an unauthenticated crawler.
 
-These are known shortfalls against the full spec, left for later passes - see `docs/IMPLEMENTATION_NOTES.md` for what *is* in place and why these were cut for time.
+## Still open
 
-- TikTok / Instagram collectors (P1): not started.
-- WHOIS domain-age signal for M3 clone-firm detection (P1): only string-similarity lookalike-domain check is implemented, no WHOIS lookup.
-- Evidence chain-of-custody "change detection on re-crawl" (P2): content-hash dedup exists, but no diff/alert when a disclaimer disappears between crawls.
-- Campaign clustering via pgvector similarity search, "find similar" (P2): embeddings + pgvector index exist; no UI or endpoint for cluster/similarity search yet.
-- PDF case report (P2): not started.
-- "Przetrenuj model" button exists end-to-end, but active-learning / sample-selection strategy is just "all analyst labels so far" - no uncertainty sampling.
-- Video transcription (faster-whisper) / frame OCR (P3): not started.
-- Dashboard uses hand-rolled CSS, not shadcn/ui + Tailwind (deviation from ADR-0007, chosen to save setup time under the deadline). Functionally equivalent views exist; restyling later is low-risk since components are already isolated per page.
-- OIDC-ready auth interface (ADR-0016 mentions swapping to Keycloak later): current auth is JWT-in-cookie only, no abstraction layer added yet since there is a single IdP today.
+- `registry_sync` re-applies the local snapshot `data/registry_seed.json` (12 real firms plus fictional demo entities). No live KNF/ESMA fetch.
+- Retraining uses all analyst labels; there is no uncertainty sampling.
+- Auth is JWT-in-cookie only; there is no OIDC abstraction layer (ADR-0016 describes the intended swap).
+- Video transcription (faster-whisper) and frame OCR are not implemented.
+- Criteria 9 (comprehensibility) and 11 (comparisons) are heuristic (sentence length, jargon, source present), not LLM-judged.
 
-# Decisions taken without mentor input (resolved by us)
+## Decisions taken without mentor input
 
-- **Risk level buckets in the findings filter:** high >= 0.8 (same as the alert threshold), medium 0.5-0.8, low < 0.5. Not configurable.
-- **Source filter:** filters by document `platform` (web, youtube, dataset), the closest thing to a "source" visible to an analyst.
-- **Graph "advertiser" node:** document `author` (for web pages the `<meta name="author">`). Pages without it have no advertiser node.
-- **Font comparison:** smallest risk-warning font vs largest profit-claim font on the page. Both found by keyword hints in the DOM, so it is a heuristic, not layout analysis.
-- **Proxy errors in health view:** cumulative failure count per configured proxy plus circuit-breaker state, kept in Redis.
-- **Still open:** M2 rules do not yet cover all 18 criteria from the attachment `ZASÓB DLA UCZESTNIKÓW - InvestWatch - kryteria oceny informacji o ryzyku.docx` (open question 1 above is partly outdated: the attachment arrived). The cold-start classifier is now contrastive (see IMPLEMENTATION_NOTES, ai-worker); it still needs a trained head and more phrases to separate M1/M2/M3 from each other.
+- **Risk level buckets:** high >= 0.8 (same as the alert threshold), medium 0.5-0.8, low < 0.5. Not configurable.
+- **Source filter:** by document `platform` (web, youtube, tiktok, dataset).
+- **Graph "advertiser" node:** document `author` (`<meta name="author">` for web pages).
+- **Font comparison:** smallest risk-warning font vs largest profit-claim font, found by keyword hints in the DOM; heuristic, not layout analysis.
+- **Proxy errors in health view:** cumulative failure count per proxy plus circuit state, kept in Redis.
+- **Re-crawl change detection:** a new snapshot of a known URL whose risk statements disappeared raises the M2 risk score to at least 0.9 and shows the removed sentences.

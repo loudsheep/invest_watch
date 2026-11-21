@@ -2,51 +2,92 @@
   "entities": [
     {
       "name": "XTB S.A.",
-      "aliases": ["XTB", "X-Trade Brokers Dom Maklerski S.A."],
+      "aliases": [
+        "XTB",
+        "X-Trade Brokers Dom Maklerski S.A."
+      ],
       "type": "investment_firm",
       "authorized": true,
       "source": "knf",
-      "domains": ["xtb.com"]
+      "domains": [
+        "xtb.com"
+      ]
     },
     {
       "name": "mBank S.A. - Dom Maklerski",
-      "aliases": ["mBank DM", "mDM"],
+      "aliases": [
+        "mBank DM",
+        "mDM"
+      ],
       "type": "investment_firm",
       "authorized": true,
       "source": "knf",
-      "domains": ["mbank.pl"]
+      "domains": [
+        "mbank.pl"
+      ]
     },
     {
       "name": "Plus500CY Ltd",
-      "aliases": ["Plus500"],
+      "aliases": [
+        "Plus500"
+      ],
       "type": "investment_firm",
       "authorized": true,
       "source": "esma",
-      "domains": ["plus500.com"]
+      "domains": [
+        "plus500.com"
+      ]
     },
     {
       "name": "eToro (Europe) Ltd",
-      "aliases": ["eToro"],
+      "aliases": [
+        "eToro"
+      ],
       "type": "investment_firm",
       "authorized": true,
       "source": "esma",
-      "domains": ["etoro.com"]
+      "domains": [
+        "etoro.com"
+      ]
+    },
+    {
+      "name": "Fikcyjny Dom Maklerski Nordik S.A.",
+      "aliases": [
+        "Nordik Broker",
+        "Nordik"
+      ],
+      "type": "investment_firm",
+      "authorized": true,
+      "source": "knf",
+      "domains": [
+        "nordik-broker-demo.local"
+      ]
     },
     {
       "name": "Fikcyjny Dom Inwestycyjny Aurum",
-      "aliases": ["Aurum Capital", "Aurum Invest"],
+      "aliases": [
+        "Aurum Capital",
+        "Aurum Invest"
+      ],
       "type": "unauthorized_entity",
       "authorized": false,
       "source": "warning_list",
-      "domains": ["aurum-invest-demo.local"]
+      "domains": [
+        "aurum-invest-demo.local"
+      ]
     },
     {
       "name": "Fikcyjna Grupa Partner Wealth",
-      "aliases": ["Partner Wealth Management", "PWM Family Office"],
+      "aliases": [
+        "Partner Wealth Management",
+        "PWM Family Office"
+      ],
       "type": "unauthorized_entity",
       "authorized": false,
       "source": "warning_list",
-      "domains": ["partner-wealth-demo.local"]
+      "domains": [
+        "partner-wealth-demo.local"
+      ]
     }
   ]
 }

@@ -4,13 +4,9 @@ pipeline as the open web so screenshots and computed styles are captured too.
 """
 from collections.abc import Iterator
 
-from .open_web import OpenWebCollector
+import httpx
 
-KNOWN_PAGES = [
-    "/finfluencer-aurum",
-    "/landing-aurum-cfd",
-    "/shadow-advisory-pwm",
-]
+from .open_web import OpenWebCollector
 
 
 class DemoSitesCollector(OpenWebCollector):
@@ -21,5 +17,7 @@ class DemoSitesCollector(OpenWebCollector):
 
     def discover(self) -> Iterator[str]:
         base_url = self.config.get("base_url", "http://demo-sites:8080")
-        for page in KNOWN_PAGES:
+        index = httpx.get(f"{base_url}/index.json", timeout=10)
+        index.raise_for_status()
+        for page in index.json():
             yield base_url + page

@@ -63,7 +63,7 @@ def detect_advisory_offer(text: str) -> list[str]:
 def detect_lookalike_domain(db: Session, url: str) -> dict | None:
     """Compares the document's domain against every authorized entity's known
     domains; a high string-similarity, non-exact match suggests a clone site."""
-    domain = urlparse(url).netloc.lower().removeprefix("www.")
+    domain = (urlparse(url).hostname or "").lower().removeprefix("www.")
     if not domain:
         return None
 

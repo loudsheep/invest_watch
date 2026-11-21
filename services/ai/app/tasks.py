@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from investwatch_common.app_settings import get_setting
 from investwatch_common.db import SessionLocal
 from investwatch_common.logging import get_logger
 from investwatch_common.models import Case, Document, Finding, Label, Mention, User
@@ -103,18 +104,35 @@ def _create_mentions(db, doc: Document) -> None:
     db.commit()
 
 
-def _apply_reference_label(db, finding: Finding, doc: Document) -> None:
-    """Seeds ground truth for the demo-sites fixtures so calibration has labels from the first scan."""
-    if not _REFERENCE_LABELS_PATH.exists() or "demo-sites" not in doc.url:
-        return
+def _is_authorized_site(db, doc: Document, details: dict) -> bool:
+    """M3 looks for unauthorized advisers: a page on the registered domain of an authorized firm is not one."""
+    if not get_setting(db, "m3_suppress_authorized_domains") or details.get("lookalike_domain"):
+        return False
+    owner = resolve_by_domain(db, doc.url)
+    return owner is not None and bool(owner.authorized)
+
+
+def _ground_truth(doc: Document, module: str) -> bool | None:
+    """Dataset labels (bool or per-module object) win over the demo-sites reference file."""
+    dataset_label = (doc.computed_styles or {}).get("dataset_label")
+    if isinstance(dataset_label, bool):
+        return dataset_label
+    if isinstance(dataset_label, dict):
+        return bool(dataset_label[module]) if module in dataset_label else None
+    if not _REFERENCE_LABELS_PATH.exists() or not any(host in doc.url for host in ("demo-sites", "-demo.local")):
+        return None
     reference = json.loads(_REFERENCE_LABELS_PATH.read_text(encoding="utf-8"))
     slug = doc.url.split("?")[0].rstrip("/").rsplit("/", 1)[-1]
-    if slug not in reference:
-        return
+    return module in reference[slug] if slug in reference else None
+
+
+def _apply_ground_truth(db, finding: Finding, doc: Document) -> None:
+    """Seeds calibration labels from a labeled dataset and the demo-sites fixtures."""
+    truth = _ground_truth(doc, finding.module)
     admin = db.query(User).filter(User.role == "admin").first()
-    if admin is None:
+    if truth is None or admin is None:
         return
-    db.add(Label(finding_id=finding.id, label=finding.module in reference[slug], created_by=admin.id))
+    db.add(Label(finding_id=finding.id, label=truth, created_by=admin.id))
     db.commit()
 
 
@@ -158,10 +176,13 @@ def process_document(document_id: int, scan_id: str | None = None):
         llm_ran = False
         for module in ("m1", "m2", "m3"):
             details = _module_details(db, doc, module)
+            if module == "m3" and _is_authorized_site(db, doc, details):
+                continue
             rule_score = _rule_signal_score(module, details)
             head_score = score_with_fallback(module, embedding, get_topic_vectors(module))
             module_results[module] = {"relevance": round(head_score, 2), "score": None, "finding_id": None}
-            if head_score < RELEVANCE_THRESHOLD:
+            removed_disclaimer = module == "m2" and bool((doc.computed_styles or {}).get("change_detection"))
+            if head_score < RELEVANCE_THRESHOLD and not removed_disclaimer:
                 continue  # rules only measure how bad a relevant document is
             combined_score = max(rule_score, head_score)
 
@@ -200,7 +221,7 @@ def process_document(document_id: int, scan_id: str | None = None):
             module_results[module].update(score=round(combined_score, 2), finding_id=finding.id)
 
             _aggregate_into_case(db, finding, doc)
-            _apply_reference_label(db, finding, doc)
+            _apply_ground_truth(db, finding, doc)
 
             if combined_score >= HIGH_RISK_THRESHOLD:
                 get_redis().publish(

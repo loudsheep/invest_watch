@@ -17,7 +17,7 @@ CACHE_TTL_SECONDS = 3600
 
 
 def resolve_by_domain(db: Session, url: str) -> Entity | None:
-    domain = urlparse(url).netloc.lower().removeprefix("www.")
+    domain = (urlparse(url).hostname or "").lower().removeprefix("www.")
     if not domain:
         return None
     return db.query(Entity).filter(Entity.domains.any(domain)).first()

@@ -23,3 +23,6 @@ docs/additional_materials
 
 frontend/test-results/
 frontend/playwright-report/
+
+test-results/
+playwright-report/

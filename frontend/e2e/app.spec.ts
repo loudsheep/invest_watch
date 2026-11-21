@@ -2,7 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 
 const nav = (page: Page, name: string) => page.locator("nav").getByRole("link", { name, exact: true });
 
-const CREDENTIALS = { username: "admin", password: "changeme-dev" };
+const adminPassword = process.env.ADMIN_PASSWORD;
+if (!adminPassword) throw new Error("ADMIN_PASSWORD is not set: export it or define it in the root .env");
+const CREDENTIALS = { username: "admin", password: adminPassword };
 
 async function login(page: Page) {
   await page.goto("/");
@@ -21,6 +23,8 @@ test.beforeEach(({ page }) => {
   });
 });
 
+// Playwright requires the fixtures argument to be a destructuring pattern.
+// eslint-disable-next-line no-empty-pattern
 test.afterEach(({}, testInfo) => {
   // A wrong password is answered with 401, which the browser logs by design.
   if (!testInfo.title.includes("rejects")) expect(consoleProblems).toEqual([]);

@@ -21,7 +21,9 @@ Jedna komenda: migracje i seed rejestru (`migrate`), bootstrap storage'u (`garag
 - Dashboard: http://localhost:47173
 - API: http://localhost:47800 (health: `/health`)
 - Garage (S3 API, ewentualnie do podglądu przez `aws s3 --endpoint-url`): http://localhost:47900
-- Domyślni użytkownicy (dev): `analyst` / `admin`, hasło `changeme-dev` (zmień `JWT_SECRET` i hasła poza środowiskiem lokalnym).
+- Użytkownicy: `analyst` / `admin`, hasła z `ANALYST_PASSWORD` / `ADMIN_PASSWORD` w `.env`.
+- Wszystkie sekrety są tylko w `.env`; brak zmiennej zatrzymuje `docker compose` z błędem. Wartości z `.env.example` służą wyłącznie do lokalnego demo - poza nim wygeneruj nowe (`openssl rand -hex 32`).
+- Porty infrastruktury (Postgres, Redis, Garage, Ollama, SearXNG) są wystawione tylko na `127.0.0.1`.
 
 ## Konfiguracja serwisów
 
@@ -30,9 +32,13 @@ Wszystkie zmienne w `.env` (skopiowane z `.env.example`). Kluczowe:
 | Zmienna | Rola |
 |---|---|
 | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | endpoint zgodny z OpenAI; domyślnie Ollama z compose (ADR-0002, ADR-0014) |
+| `POSTGRES_PASSWORD`, `REDIS_PASSWORD` | hasła bazy i kolejki |
 | `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | dostęp do Garage (dowody: HTML, screenshoty) |
-| `PROXY_URLS` | pula proxy dla scrapera (ADR-0015), pusta = połączenie bezpośrednie |
-| `JWT_SECRET` | sekret sesji (ADR-0016) |
+| `GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN`, `SEARXNG_SECRET` | sekrety Garage i SearXNG |
+| `PROXY_URLS` | pula proxy dla scrapera, także kolektorów YouTube/TikTok (ADR-0015), pusta = połączenie bezpośrednie |
+| `FETCH_ALLOWED_PRIVATE_HOSTS` | jedyne hosty w sieci prywatnej, które crawler może pobrać (sandbox demo); reszta musi być publiczna (ochrona SSRF) |
+| `JWT_SECRET`, `ANALYST_PASSWORD`, `ADMIN_PASSWORD` | sekret sesji i hasła kont startowych (ADR-0016) |
+| `CORS_ORIGINS` | originy dopuszczone do API i Socket.io |
 | `RETENTION_DAYS_NO_FINDING` | retencja dokumentów bez findingu (ADR-0019, RODO) |
 | `CLASSIFIER_THRESHOLD_M1/M2/M3` | progi startowe (zmienialne później w panelu Kalibracja) |
 

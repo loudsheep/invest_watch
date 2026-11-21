@@ -4,9 +4,9 @@
 set -eu
 
 ADMIN="${GARAGE_ADMIN_URL:-http://garage:3903}"
-TOKEN="${GARAGE_ADMIN_TOKEN:-investwatch-dev-admin-token}"
-ACCESS_KEY="${S3_ACCESS_KEY:-GK0123456789abcdef01234567}"
-SECRET_KEY="${S3_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}"
+TOKEN="${GARAGE_ADMIN_TOKEN:?GARAGE_ADMIN_TOKEN is not set}"
+ACCESS_KEY="${S3_ACCESS_KEY:?S3_ACCESS_KEY is not set}"
+SECRET_KEY="${S3_SECRET_KEY:?S3_SECRET_KEY is not set}"
 BUCKET="${S3_BUCKET:-investwatch-evidence}"
 
 api() {

@@ -16,17 +16,22 @@ down_revision = "0001"
 branch_labels = None
 depends_on = None
 
-# Dev-only seed credentials (username/password: analyst/changeme-dev, admin/changeme-dev).
-# Rotate immediately for any non-local deployment.
-DEV_PASSWORD_HASH = PasswordHasher().hash("changeme-dev")
-
 REGISTRY_SEED_PATH = os.path.join(
     os.path.dirname(__file__), "..", "..", "..", "data", "registry_seed.json"
 )
 
 
+def _seed_password_hash(variable: str) -> str:
+    password = os.environ.get(variable)
+    if not password:
+        raise RuntimeError(f"{variable} is not set; define it in .env")
+    return PasswordHasher().hash(password)
+
+
 def upgrade() -> None:
     conn = op.get_bind()
+    analyst_hash = _seed_password_hash("ANALYST_PASSWORD")
+    admin_hash = _seed_password_hash("ADMIN_PASSWORD")
 
     conn.execute(
         sa.text(
@@ -47,8 +52,8 @@ def upgrade() -> None:
             "(:e, :u, :p, :r)"
         ),
         [
-            {"e": "analyst@investwatch.local", "u": "analyst", "p": DEV_PASSWORD_HASH, "r": "analyst"},
-            {"e": "admin@investwatch.local", "u": "admin", "p": DEV_PASSWORD_HASH, "r": "admin"},
+            {"e": "analyst@investwatch.local", "u": "analyst", "p": analyst_hash, "r": "analyst"},
+            {"e": "admin@investwatch.local", "u": "admin", "p": admin_hash, "r": "admin"},
         ],
     )
 

@@ -1,4 +1,4 @@
-"""OpenAI-compatible chat client (OpenRouter or Ollama /v1) for candidate documents
+"""OpenAI-compatible chat client (local Ollama /v1 by default) for candidate documents
 that cleared the pre-filter threshold.
 Structured output (response_format=json_object) + Pydantic validation + one retry on parse
 failure, per CONCEPT ch.5 / ADR-0002 / ADR-0014.

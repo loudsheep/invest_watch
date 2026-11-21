@@ -1,15 +1,37 @@
+# Secrets come only from .env (copy .env.example). A missing variable stops compose
+# with an error instead of falling back to a value baked into this file.
+# Infrastructure ports are published on 127.0.0.1 only; the dashboard, API and
+# demo-sites stay reachable from the network for the demo.
+
+x-database-env: &database-env
+  DATABASE_URL: postgresql://investwatch:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set, copy .env.example to .env}@postgres:5432/investwatch
+
+x-redis-env: &redis-env
+  REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is not set}@redis:6379
+
+x-storage-env: &storage-env
+  S3_ENDPOINT: http://garage:3900
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is not set}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is not set}
+  S3_BUCKET: ${S3_BUCKET:-investwatch-evidence}
+
+x-llm-env: &llm-env
+  LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434/v1}
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  LLM_MODEL: ${LLM_MODEL:-gemma3:4b}
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: investwatch
       POSTGRES_USER: investwatch
-      POSTGRES_PASSWORD: investwatch-dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/init.sql:/docker-entrypoint-initdb.d/01-init.sql
     ports:
-      - "47432:5432"
+      - "127.0.0.1:47432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U investwatch"]
       interval: 10s
@@ -18,8 +40,11 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is not set}"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?REDIS_PASSWORD is not set}
     ports:
-      - "47379:6379"
+      - "127.0.0.1:47379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -32,8 +57,11 @@ services:
   garage:
     image: dxflrs/garage:v2.1.0
     restart: unless-stopped
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?GARAGE_RPC_SECRET is not set}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?GARAGE_ADMIN_TOKEN is not set}
     ports:
-      - "47900:3900"
+      - "127.0.0.1:47900:3900"
     volumes:
       - ./garage/garage.toml:/etc/garage.toml:ro
       - garage_meta:/var/lib/garage/meta
@@ -46,9 +74,8 @@ services:
     entrypoint: /bin/sh
     command: ["/init.sh"]
     environment:
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-GK0123456789abcdef01234567}
-      S3_SECRET_KEY: ${S3_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
-      S3_BUCKET: ${S3_BUCKET:-investwatch-evidence}
+      <<: *storage-env
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?GARAGE_ADMIN_TOKEN is not set}
     volumes:
       - ./garage/init.sh:/init.sh:ro
     restart: "no"
@@ -56,7 +83,7 @@ services:
   ollama:
     image: ollama/ollama:latest
     ports:
-      - "47434:11434"
+      - "127.0.0.1:47434:11434"
     volumes:
       - ollama_data:/root/.ollama
     environment:
@@ -81,11 +108,12 @@ services:
   searxng:
     image: searxng/searxng:latest
     ports:
-      - "47888:8080"
+      - "127.0.0.1:47888:8080"
     volumes:
       - ./infra/searxng-settings.yml:/etc/searxng/settings.yml:ro
     environment:
-      - INSTANCE_NAME=InvestWatch-SearXNG
+      INSTANCE_NAME: InvestWatch-SearXNG
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?SEARXNG_SECRET is not set}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/healthz"]
       interval: 30s
@@ -97,7 +125,7 @@ services:
     profiles:
       - proxy
     ports:
-      - "47118:8118"
+      - "127.0.0.1:47118:8118"
     environment:
       - TINYPROXY_TIMEOUT=600
 
@@ -106,7 +134,7 @@ services:
     profiles:
       - proxy
     ports:
-      - "47119:8118"
+      - "127.0.0.1:47119:8118"
     environment:
       - TINYPROXY_TIMEOUT=600
 
@@ -118,7 +146,9 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
+      <<: *database-env
+      ANALYST_PASSWORD: ${ANALYST_PASSWORD:?ANALYST_PASSWORD is not set}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is not set}
     restart: "no"
 
   api:
@@ -137,18 +167,11 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
-      REDIS_URL: redis://redis:6379
-      S3_ENDPOINT: http://garage:3900
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-GK0123456789abcdef01234567}
-      S3_SECRET_KEY: ${S3_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
-      S3_BUCKET: ${S3_BUCKET:-investwatch-evidence}
-      LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434/v1}
-      LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-gemma3:4b}
+      <<: [*database-env, *redis-env, *storage-env, *llm-env]
       PROXY_URLS: ${PROXY_URLS:-}
       SEARXNG_URL: http://searxng:8080
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is not set}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:47173,http://localhost:5173}
       DEBUG: "false"
     volumes:
       - ./common:/app/common:ro
@@ -173,14 +196,10 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
-      REDIS_URL: redis://redis:6379
-      S3_ENDPOINT: http://garage:3900
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-GK0123456789abcdef01234567}
-      S3_SECRET_KEY: ${S3_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
-      S3_BUCKET: ${S3_BUCKET:-investwatch-evidence}
+      <<: [*database-env, *redis-env, *storage-env]
       PROXY_URLS: ${PROXY_URLS:-}
       SEARXNG_URL: http://searxng:8080
+      FETCH_ALLOWED_PRIVATE_HOSTS: ${FETCH_ALLOWED_PRIVATE_HOSTS:-demo-sites,nordik-brokr-demo.local}
       DEBUG: "false"
     volumes:
       - ./common:/app/common:ro
@@ -201,11 +220,7 @@ services:
       ollama:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
-      REDIS_URL: redis://redis:6379
-      LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434/v1}
-      LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-gemma3:4b}
+      <<: [*database-env, *redis-env, *llm-env]
       HF_HOME: /app/models/hf
       DEBUG: "false"
     volumes:
@@ -226,8 +241,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
-      REDIS_URL: redis://redis:6379
+      <<: [*database-env, *redis-env]
       DEBUG: "false"
     volumes:
       - ./common:/app/common:ro

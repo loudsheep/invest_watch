@@ -11,7 +11,7 @@ search:
     - json
 
 server:
-  secret_key: "investwatch-dev-searxng-secret-change-me"
+  # secret_key comes from SEARXNG_SECRET (.env)
   limiter: false
   image_proxy: false
 

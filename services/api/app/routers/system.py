@@ -1,12 +1,13 @@
 import time
 import urllib.request
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import yaml
 from fastapi import APIRouter, Depends
 from investwatch_common.config import settings
 from investwatch_common.db import get_db
-from investwatch_common.models import Document, Source, User
+from investwatch_common.models import Document, Finding, Source, User
 from investwatch_common.redis_client import PROXY_CIRCUIT_KEY, PROXY_FAILURES_KEY, get_redis
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
@@ -26,6 +27,37 @@ def _http_ok(url: str) -> bool:
             return response.status < 500
     except Exception:
         return False
+
+
+ACTIVITY_BUCKET_MINUTES = 5
+ACTIVITY_BUCKETS = 12
+
+
+def _activity(db: Session) -> list[dict]:
+    """Documents and findings created per 5-minute bucket over the last hour."""
+    step = timedelta(minutes=ACTIVITY_BUCKET_MINUTES)
+    now = datetime.now(UTC).replace(tzinfo=None)
+    start = (now - step * (ACTIVITY_BUCKETS - 1)).replace(second=0, microsecond=0)
+    start -= timedelta(minutes=start.minute % ACTIVITY_BUCKET_MINUTES)
+    buckets = [{"t": (start + step * i).isoformat(), "documents": 0, "findings": 0} for i in range(ACTIVITY_BUCKETS)]
+
+    def fill(column, key: str) -> None:
+        for (created,) in db.query(column).filter(column >= start).all():
+            index = int((created - start) / step)
+            if 0 <= index < ACTIVITY_BUCKETS:
+                buckets[index][key] += 1
+
+    fill(Document.created_at, "documents")
+    fill(Finding.created_at, "findings")
+    return buckets
+
+
+def _recent_findings(db: Session) -> list[dict]:
+    rows = db.query(Finding).order_by(Finding.created_at.desc()).limit(6).all()
+    return [
+        {"id": f.id, "module": f.module, "score": f.score, "title": f.document.title, "created_at": f.created_at}
+        for f in rows
+    ]
 
 
 def _check_services(db: Session) -> list[dict]:
@@ -90,4 +122,6 @@ def system_health(db: Session = Depends(get_db), _user: User = Depends(get_curre
         "collectors": collectors,
         "proxies": proxies,
         "services": _check_services(db),
+        "activity": _activity(db),
+        "recent_findings": _recent_findings(db),
     }

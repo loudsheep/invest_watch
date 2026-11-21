@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from investwatch_common.logging import configure_logging
 
 from .pubsub_bridge import listen_pubsub
-from .routers import auth, calibration, cases, documents, entities, findings, health, scan, system
+from .routers import auth, calibration, cases, documents, entities, findings, health, scan, settings, system
 from .socket_manager import sio
 
 configure_logging("api")
@@ -39,5 +39,6 @@ app.include_router(calibration.router)
 app.include_router(scan.router)
 app.include_router(documents.router)
 app.include_router(system.router)
+app.include_router(settings.router)
 
 socket_app = socketio.ASGIApp(sio, other_asgi_app=app)

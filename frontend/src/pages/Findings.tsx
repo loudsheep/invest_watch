@@ -6,12 +6,11 @@ import Loading from "../components/Loading";
 import ModuleBadge from "../components/ModuleBadge";
 import QueryError from "../components/QueryError";
 import RiskCell from "../components/RiskCell";
-import SoonTag from "../components/SoonTag";
 import StatusBadge from "../components/StatusBadge";
 import { api, type Finding } from "../lib/api";
 import { MODULES, STATUSES, formatShortDate, statusLabel } from "../lib/modules";
 
-const PLATFORMS = ["web", "youtube", "dataset"];
+const PLATFORMS = ["web", "youtube", "tiktok", "dataset"];
 const PAGE_SIZE = 10;
 const BINS = 20;
 
@@ -65,11 +64,12 @@ export default function Findings() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [sort, setSort] = useState<Sort>("score_desc");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const { data, isError, isPending, refetch } = useQuery({
-    queryKey: ["findings", "list", minScore, maxScore, dateFrom, dateTo],
+    queryKey: ["findings", "list", minScore, maxScore, dateFrom, dateTo, search],
     queryFn: async () => {
       const lists = await Promise.all(
         PLATFORMS.map(async (platform) => {
@@ -79,6 +79,7 @@ export default function Findings() {
             max_score: maxScore < 1 ? maxScore : undefined,
             date_from: dateFrom ? `${dateFrom}T00:00:00` : undefined,
             date_to: dateTo ? `${dateTo}T23:59:59` : undefined,
+            q: search || undefined,
             limit: 500,
           });
           return rows.map((row) => ({ ...row, platform }));
@@ -282,12 +283,15 @@ export default function Findings() {
         <div className="results">
           <div className="toolbar">
             <input
-              className="input is-soon"
+              className="input"
               placeholder="Szukaj w treści, podmiocie lub domenie"
-              disabled
-              title="Wymaga pól title, entity_name i domain w API"
+              aria-label="Szukaj"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(0);
+              }}
             />
-            <SoonTag />
             <select className="input" value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sortowanie">
               <option value="score_desc">Sortuj: Ryzyko malejąco</option>
               <option value="score_asc">Sortuj: Ryzyko rosnąco</option>

@@ -1,9 +1,10 @@
 import pl from "../i18n/pl.json";
 import type { FindingDetail } from "../lib/api";
-import SoonTag from "./SoonTag";
 
 interface Criterion {
   id: string;
+  name?: string;
+  detector?: string;
   description: string;
   legal_basis: string;
   applicable?: boolean;
@@ -43,14 +44,13 @@ export function quotesFor(data: FindingDetail): Quote[] {
   ];
 }
 
-function Metric({ label, value, note, soon }: { label: string; value: string; note?: string; soon?: boolean }) {
+function Metric({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className={`metric${soon ? " is-soon" : ""}`}>
+    <div className="metric">
       <span className="micro">{label}</span>
       <span className="metric__line">
         <span className="metric__value">{value}</span>
         {note && <span className="muted">{note}</span>}
-        {soon && <SoonTag />}
       </span>
     </div>
   );
@@ -61,6 +61,12 @@ export function Metrics({ data }: { data: FindingDetail }) {
   const fonts = (data.details as Details).font_comparison as FontComparison | null | undefined;
   const ratio =
     fonts?.profit_px && fonts.risk_px ? `${(fonts.profit_px / fonts.risk_px).toFixed(1).replace(".", ",")}×` : "-";
+  const criteria = ((data.details as Details).criteria as Criterion[] | undefined) ?? [];
+  const find = (id: string) => criteria.find((c) => c.id === id && c.applicable !== false);
+  const contrast = /contrast=([\d.]+)/.exec(find("risk_contrast")?.evidence ?? "")?.[1]?.replace(".", ",") ?? "-";
+  const hidden = find("risk_hidden");
+  const visibility = hidden ? (hidden.score < 0.5 ? "ukryte" : "widoczne") : "-";
+  const balance = /ratio=([\d.]+)/.exec(find("profit_risk_balance")?.evidence ?? "")?.[1]?.replace(".", ",") ?? "-";
   return (
     <div className="metrics">
       <Metric
@@ -68,9 +74,9 @@ export function Metrics({ data }: { data: FindingDetail }) {
         value={ratio}
         note={fonts?.profit_px ? `${fonts.profit_px} px : ${fonts.risk_px} px` : undefined}
       />
-      <Metric label="Kontrast ostrzeżenia (WCAG)" value="-" soon />
-      <Metric label="Pozycja ostrzeżenia" value="-" soon />
-      <Metric label="Proporcja zysk : ryzyko" value="-" soon />
+      <Metric label="Kontrast ostrzeżenia (WCAG)" value={contrast} />
+      <Metric label="Widoczność ostrzeżenia" value={visibility} />
+      <Metric label="Proporcja zysk : ryzyko" value={balance} />
     </div>
   );
 }
@@ -79,15 +85,27 @@ export function Criteria({ data }: { data: FindingDetail }) {
   const d = data.details as Details;
   const criteria = (d.criteria as Criterion[] | undefined) ?? [];
   if (data.module !== "m2" || criteria.length === 0) return null;
-  const failed = criteria.filter((c) => c.applicable !== false && c.score < 0.5).length;
+  const applicable = criteria.filter((c) => c.applicable !== false);
+  const failed = applicable.filter((c) => c.score < 0.5).length;
+  const change = d.change_detection as { removed_risk_statements: string[]; previous_fetched_at?: string } | null | undefined;
   return (
     <section className="panel">
       <div className="panel__head">
         <h2>Kryteria M2 i podstawa prawna</h2>
         <span className={failed ? "text-critical" : "muted"}>
-          {failed} z {criteria.length} niespełnionych
+          {failed} z {applicable.length} niespełnionych
         </span>
       </div>
+      {change && (
+        <div className="panel__body">
+          <p className="text-critical">Wykryto zmianę przy ponownym crawlu: usunięto informację o ryzyku.</p>
+          {change.removed_risk_statements.map((statement) => (
+            <p className="muted" key={statement}>
+              „{statement}”
+            </p>
+          ))}
+        </div>
+      )}
       <div className="table-head micro">
         <span className="col-grow">Kryterium</span>
         <span className="col-detector">Detektor</span>
@@ -101,12 +119,10 @@ export function Criteria({ data }: { data: FindingDetail }) {
         return (
           <div className="table-row" key={c.id}>
             <span className="col-grow">
-              <p className="cell-id">{c.id}</p>
+              <p className="cell-id">{c.name ?? c.id}</p>
               <p className="muted">{c.description}</p>
             </span>
-            <span className="col-detector mono muted is-soon" title="Brak pola detector w API">
-              -
-            </span>
+            <span className="col-detector mono muted">{c.detector ?? "-"}</span>
             <span className="col-basis">{c.legal_basis}</span>
             <span className="col-weight mono">{c.weight.toFixed(2).replace(".", ",")}</span>
             <span className="col-result">
@@ -169,6 +185,8 @@ export function ModuleFacts({ data }: { data: FindingDetail }) {
               "-"
             )}
           </dd>
+          <dt>Wiek domeny (RDAP)</dt>
+          <dd>{typeof d.domain_age_days === "number" ? `${d.domain_age_days} dni` : "-"}</dd>
         </dl>
       </section>
     );
@@ -200,9 +218,6 @@ export function Entities({ data }: { data: FindingDetail }) {
             <dl className="kv">
               <dt>Rola</dt>
               <dd>{m.role ?? "-"}</dd>
-              {["NIP", "KRS", "Domeny", "Źródło"].map((label) => (
-                <FragmentRow key={label} label={label} />
-              ))}
             </dl>
           </div>
         ))
@@ -211,11 +226,3 @@ export function Entities({ data }: { data: FindingDetail }) {
   );
 }
 
-function FragmentRow({ label }: { label: string }) {
-  return (
-    <>
-      <dt className="is-soon">{label}</dt>
-      <dd className="is-soon">-</dd>
-    </>
-  );
-}

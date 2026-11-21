@@ -52,6 +52,23 @@ export interface FindingDetail extends Finding {
   screenshot_url: string | null;
 }
 
+export interface SimilarFinding {
+  id: number;
+  module: string;
+  score: number;
+  title: string | null;
+  url: string;
+  similarity: number;
+}
+
+export interface EvidenceManifest {
+  document_id: number;
+  url: string;
+  fetched_at: string | null;
+  content_hash: string;
+  files: Record<string, { sha256: string; bytes: number }>;
+}
+
 export interface CaseRow {
   id: number;
   primary_entity_id: number;
@@ -84,6 +101,7 @@ export interface SystemHealth {
     documents: number;
   }[];
   proxies: { url: string; failures: number; circuit_open: boolean }[];
+  services: { name: string; ok: boolean; latency_ms: number }[];
 }
 
 export interface CaseDetail {
@@ -124,8 +142,10 @@ export const api = {
     return request<Finding[]>(`/api/findings?${query.toString()}`);
   },
   getFinding: (id: number) => request<FindingDetail>(`/api/findings/${id}`),
-  updateFindingStatus: (id: number, status: string) =>
-    request<Finding>(`/api/findings/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  updateFindingStatus: (id: number, status: string, note?: string) =>
+    request<Finding>(`/api/findings/${id}/status`, { method: "PATCH", body: JSON.stringify({ status, note }) }),
+  similarFindings: (id: number) => request<SimilarFinding[]>(`/api/findings/${id}/similar`),
+  getEvidenceManifest: (documentId: number) => request<EvidenceManifest>(`/api/documents/${documentId}/evidence`),
   findingsTrend: () => request<{ day: string; module: string; count: number }[]>("/api/findings/trend"),
   findingsCounters: () => request<{ by_module: Record<string, number>; high_risk: number }>("/api/findings/counters"),
 

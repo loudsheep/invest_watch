@@ -123,9 +123,6 @@ export default function ScanNow() {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
         />
-        <select className="input scanform__modules is-soon" disabled title="API skanu przyjmuje tylko adres" aria-label="Moduły">
-          <option>Moduły: wszystkie</option>
-        </select>
         <button className="btn btn--primary" type="submit" disabled={inFlight || !url}>
           {submitting ? pl["scan.starting"] : inFlight ? pl["scan.running"] : pl["scan.button"]}
         </button>

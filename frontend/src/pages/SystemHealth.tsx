@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import pl from "../i18n/pl.json";
 import Loading from "../components/Loading";
 import QueryError from "../components/QueryError";
-import SoonTag from "../components/SoonTag";
 import { api } from "../lib/api";
 
 const labels = pl as Record<string, string>;
@@ -84,13 +83,6 @@ export default function SystemHealth() {
               <span className="kpi__value">{lastCrawl ? clockTime(lastCrawl) : "-"}</span>
               <span className="kpi__note">{lastCrawl ? `${minutesAgo(lastCrawl)} · ${totalDocuments} dokumentów` : pl["system.never"]}</span>
             </div>
-            <div className="kpi__stat is-soon">
-              <span className="kpi__label">Opóźnienie API (p95)</span>
-              <span className="kpi__value">-</span>
-              <span className="kpi__note">
-                <SoonTag />
-              </span>
-            </div>
           </div>
 
           <div className="row-split">
@@ -114,18 +106,24 @@ export default function SystemHealth() {
                     </span>
                   </div>
                 ))}
-                <p className="muted is-soon">
-                  Historia długości kolejek z ostatnich 30 min <SoonTag />
-                </p>
               </div>
             </section>
 
-            <section className="panel row-split__side is-soon">
+            <section className="panel row-split__side">
               <div className="panel__head">
                 <h2>Usługi</h2>
-                <SoonTag />
               </div>
-              <p className="empty">Brak endpointu ze statusem usług (api, workery, postgres, redis, garage, searxng).</p>
+              {data.services.map((service) => (
+                <div className="table-row" key={service.name}>
+                  <span className="col-grow cell-id">{service.name}</span>
+                  <span className="col-health">
+                    <span className={`dot-label${service.ok ? " dot-label--ok" : " dot-label--critical"}`}>
+                      {service.ok ? "Działa" : "Niedostępna"}
+                    </span>
+                  </span>
+                  <span className="col-docs mono muted">{service.latency_ms} ms</span>
+                </div>
+              ))}
             </section>
           </div>
 
@@ -140,7 +138,6 @@ export default function SystemHealth() {
                 <span className="col-sched">Harmonogram</span>
                 <span className="col-crawl">Ostatni crawl</span>
                 <span className="col-docs">Dok.</span>
-                <span className="col-errors is-soon">Błędy 24h</span>
               </div>
               {data.collectors.map((c) => (
                 <div className="table-row" key={c.name}>
@@ -155,7 +152,6 @@ export default function SystemHealth() {
                     {c.last_crawl_at ? parseUtc(c.last_crawl_at).toLocaleString("pl-PL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : pl["system.never"]}
                   </span>
                   <span className="col-docs mono">{c.documents}</span>
-                  <span className="col-errors mono muted is-soon">-</span>
                 </div>
               ))}
             </section>

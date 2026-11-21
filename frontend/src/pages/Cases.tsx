@@ -7,8 +7,7 @@ import Loading from "../components/Loading";
 import ModuleBadge from "../components/ModuleBadge";
 import QueryError from "../components/QueryError";
 import RiskCell from "../components/RiskCell";
-import SoonTag from "../components/SoonTag";
-import { api, type CaseDetail, type CaseRow } from "../lib/api";
+import { API_URL, api, type CaseDetail, type CaseRow } from "../lib/api";
 import { MODULES, formatShortDate } from "../lib/modules";
 
 function summarize(detail?: CaseDetail) {
@@ -93,12 +92,9 @@ export default function Cases() {
               </div>
               <div className="case-head__actions">
                 {currentSummary && currentSummary.count > 0 && <RiskCell score={currentSummary.max} />}
-                <button className="btn btn--secondary" disabled title="Wymaga endpointu raportu PDF">
-                  Raport PDF z hashami <SoonTag />
-                </button>
-                <button className="btn btn--primary" disabled title="Wymaga endpointu zmiany statusu case'a">
-                  Eskaluj case <SoonTag />
-                </button>
+                <a className="btn btn--secondary" href={`${API_URL}/api/cases/${current.id}/report.pdf`} download>
+                  Raport PDF z hashami
+                </a>
               </div>
             </section>
 

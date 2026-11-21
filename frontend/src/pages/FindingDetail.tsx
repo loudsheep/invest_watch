@@ -6,7 +6,6 @@ import Loading from "../components/Loading";
 import { Criteria, Entities, Metrics, ModuleFacts, quotesFor } from "../components/FindingFacts";
 import ModuleBadge from "../components/ModuleBadge";
 import QueryError from "../components/QueryError";
-import SoonTag from "../components/SoonTag";
 import StatusBadge from "../components/StatusBadge";
 import { API_URL, api } from "../lib/api";
 import { HIGH_RISK, formatDate, moduleInfo, riskBand } from "../lib/modules";
@@ -25,8 +24,9 @@ export default function FindingDetail() {
   });
 
   const mutation = useMutation({
-    mutationFn: (status: string) => api.updateFindingStatus(Number(id), status),
+    mutationFn: (status: string) => api.updateFindingStatus(Number(id), status, note),
     onSuccess: () => {
+      setNote("");
       queryClient.invalidateQueries({ queryKey: ["finding", id] });
       queryClient.invalidateQueries({ queryKey: ["findings"] });
       queryClient.invalidateQueries({ queryKey: ["counters"] });
@@ -65,9 +65,9 @@ export default function FindingDetail() {
             <span className="muted">wykryto {formatDate(data.created_at)}</span>
           </p>
         </div>
-        <button className="btn btn--secondary" disabled title="Wymaga endpointu pakietu dowodów">
-          Pobierz pakiet dowodów <SoonTag />
-        </button>
+        <a className="btn btn--secondary" href={`${API_URL}/api/documents/${data.document_id}/evidence.zip`} download>
+          Pobierz pakiet dowodów
+        </a>
       </div>
 
       <div className="row-split">
@@ -161,13 +161,11 @@ export default function FindingDetail() {
                 </button>
               </div>
               <textarea
-                className="input is-soon"
+                className="input"
                 rows={3}
-                disabled
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Notatka do decyzji (trafi do audit logu)"
-                title="API statusu nie przyjmuje notatki"
               />
               {mutation.isSuccess && (
                 <p className="saved" role="status">
@@ -180,22 +178,60 @@ export default function FindingDetail() {
 
           <Entities data={data} />
 
-          <section className="panel is-soon">
-            <div className="panel__head">
-              <h2>Łańcuch dowodowy</h2>
-              <SoonTag />
-            </div>
-            <div className="panel__body custody">
-              {["HTML", "Zrzut ekranu", "Computed styles"].map((label) => (
-                <div key={label}>
-                  <p className="custody__label">{label}</p>
-                  <p className="cell-sub">SHA-256 -</p>
-                </div>
-              ))}
-            </div>
-          </section>
+          <Custody documentId={data.document_id} />
+          <Similar findingId={data.id} />
         </aside>
       </div>
     </>
+  );
+}
+
+function Custody({ documentId }: { documentId: number }) {
+  const { data, isError } = useQuery({
+    queryKey: ["evidence", documentId],
+    queryFn: () => api.getEvidenceManifest(documentId),
+  });
+  const entries: [string, string][] = data
+    ? [["Treść (content_hash)", data.content_hash], ...Object.entries(data.files).map(([name, meta]) => [name, meta.sha256] as [string, string])]
+    : [];
+  return (
+    <section className="panel">
+      <div className="panel__head">
+        <h2>Łańcuch dowodowy</h2>
+        {data?.fetched_at && <span className="muted">pobrano {formatDate(data.fetched_at)}</span>}
+      </div>
+      <div className="panel__body custody">
+        {isError && <p className="empty">Nie udało się odczytać dowodów.</p>}
+        {entries.map(([label, hash]) => (
+          <div key={label}>
+            <p className="custody__label">{label}</p>
+            <p className="cell-sub mono">SHA-256 {hash}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Similar({ findingId }: { findingId: number }) {
+  const { data } = useQuery({ queryKey: ["similar", findingId], queryFn: () => api.similarFindings(findingId) });
+  return (
+    <section className="panel">
+      <div className="panel__head">
+        <h2>Podobne treści</h2>
+        <span className="muted">klaster kampanii</span>
+      </div>
+      <div className="panel__body">
+        {data && data.length === 0 && <p className="empty">Brak podobnych dokumentów.</p>}
+        {data?.map((item) => (
+          <p key={item.id}>
+            <Link to={`/findings/${item.id}`}>{item.title || item.url}</Link>{" "}
+            <span className="muted mono">
+              {moduleInfo(item.module).name} · podobieństwo {item.similarity.toFixed(2).replace(".", ",")}
+            </span>
+          </p>
+        ))}
+      </div>
+    </section>
   );
 }

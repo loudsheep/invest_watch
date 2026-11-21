@@ -5,7 +5,6 @@ import pl from "../i18n/pl.json";
 import Loading from "../components/Loading";
 import ModuleBadge from "../components/ModuleBadge";
 import QueryError from "../components/QueryError";
-import SoonTag from "../components/SoonTag";
 import { api, type CalibrationMetrics } from "../lib/api";
 import { MODULES, moduleInfo } from "../lib/modules";
 
@@ -124,9 +123,6 @@ export default function Calibration() {
                   <span className="legend__item">
                     <span className="legend__line" style={{ background: "var(--brand)" }} /> model aktualny
                   </span>
-                  <span className="legend__item is-soon">
-                    <span className="legend__line legend__line--dashed" /> poprzedni model <SoonTag />
-                  </span>
                 </div>
                 <ResponsiveContainer width="100%" height={340}>
                   <AreaChart data={curve}>
@@ -170,9 +166,6 @@ export default function Calibration() {
                       </span>
                     )}
                   </div>
-                  <div className="is-soon calib-hist" title="Wymaga rozkładu score wg decyzji analityków w API">
-                    rozkład score: potwierdzone / odrzucone <SoonTag />
-                  </div>
                   <input
                     id="threshold"
                     className="slider"
@@ -214,23 +207,6 @@ export default function Calibration() {
             </div>
           </div>
 
-          <section className="panel is-soon">
-            <div className="panel__head">
-              <h2>
-                Wersje modelu <SoonTag />
-              </h2>
-              <span className="muted">Przetrenowanie podbija model_version, a decyzje analityka trafiają do zbioru etykiet</span>
-            </div>
-            <div className="table-head micro">
-              <span className="col-grow">Wersja</span>
-              <span className="col-grow">Data</span>
-              <span className="col-grow">Etykiety</span>
-              <span className="col-grow">Precyzja</span>
-              <span className="col-grow">Czułość</span>
-              <span className="col-grow">Uwagi</span>
-            </div>
-            <p className="empty">Brak endpointu z historią wersji modelu.</p>
-          </section>
         </>
       )}
     </>

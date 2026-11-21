@@ -23,3 +23,10 @@ From inside the Docker network (use these in "Skanuj URL", the scraper runs in a
 - http://demo-sites:8080/finfluencer-aurum
 - http://demo-sites:8080/landing-aurum-cfd
 - http://demo-sites:8080/shadow-advisory-pwm
+
+## Scenario fixtures
+
+| Page | What it demonstrates |
+|---|---|
+| `/landing-nordik-zmiana` | Same URL, content changes: `GET /__toggle-risk` removes or restores the risk warning, so a re-crawl shows disclaimer-removal detection |
+| `/clone-nordik` | Served from the `nordik-brokr-demo.local` network alias, a lookalike of the registry domain `nordik-broker-demo.local` (M3 clone firm) |

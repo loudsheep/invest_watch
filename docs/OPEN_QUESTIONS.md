@@ -3,13 +3,13 @@
 ## Resolved
 
 1. **M2 risk-requirements attachment** - arrived. `config/m2_rules.yaml` implements all 18 criteria (12 split into 12a/12b), each with legal basis; `ref` is the number from the attachment. Visual criteria (4, 5, 6, 8, 13) use DOM computed styles and tablet/phone viewport renders, so they apply to pages fetched by the browser collectors, not to plain-text dataset samples (shown as "n/d").
-2. **Dataset format** - `services/scraper/app/collectors/dataset.py` accepts `documents.jsonl` or one `*.json` per document in `data/dataset/` (fields `url/platform/author/title/published_at/content/html`). Adjust `_to_raw_document` if the real format differs.
+2. **Dataset format** - see `docs/DATASET.md`: jsonl, json and csv with field aliases and optional per-module labels. Add an alias in `FIELD_ALIASES` if the real export differs.
 3. **Labeled reference set** - `data/reference_labels.json` holds ground truth for the demo-sites fixtures; the ai-worker labels findings on those pages on creation, so calibration shows precision/recall from the first scan. Analyst decisions (confirm/dismiss) add to the same `labels` table.
 4. **Social collectors** - YouTube and TikTok (public profiles and videos via yt-dlp). Facebook and Instagram are not implemented: they need a logged-in session, which is out of scope for an unauthenticated crawler.
 
 ## Still open
 
-- `registry_sync` re-applies the local snapshot `data/registry_seed.json` (12 real firms plus fictional demo entities). No live KNF/ESMA fetch.
+- Registry sync pulls the public KNF lists live (investment firms, banks with brokerage, foreign branches, notified foreign firms which is the Polish view of the ESMA passport register, and public warnings) and falls back to `data/registry_knf.json`. Domains exist only for firms curated in `data/registry_seed.json`; the KNF lists carry none. The ESMA register itself is not queried directly.
 - Retraining uses all analyst labels; there is no uncertainty sampling.
 - Auth is JWT-in-cookie only; there is no OIDC abstraction layer (ADR-0016 describes the intended swap).
 - Video transcription (faster-whisper) and frame OCR are not implemented.

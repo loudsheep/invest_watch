@@ -8,4 +8,4 @@ select = ["E", "F", "I", "UP", "B"]
 # FastAPI's Depends()-as-default-argument is the framework's documented
 # dependency-injection pattern, not the mutable-default-argument bug B008
 # targets.
-ignore = ["B008"]
+ignore = ["B008", "E501"]

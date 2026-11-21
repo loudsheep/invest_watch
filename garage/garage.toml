@@ -10,3 +10,7 @@ rpc_secret = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 [s3_api]
 s3_region = "auto"
 api_bind_addr = "[::]:3900"
+
+[admin]
+api_bind_addr = "[::]:3903"
+admin_token = "investwatch-dev-admin-token"

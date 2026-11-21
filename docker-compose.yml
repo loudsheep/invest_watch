@@ -39,10 +39,22 @@ services:
       - garage_meta:/var/lib/garage/meta
       - garage_data:/var/lib/garage/data
 
+  garage-init:
+    image: curlimages/curl:8.11.1
+    depends_on:
+      - garage
+    entrypoint: /bin/sh
+    command: ["/init.sh"]
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-GK0123456789abcdef01234567}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      S3_BUCKET: ${S3_BUCKET:-investwatch-evidence}
+    volumes:
+      - ./garage/init.sh:/init.sh:ro
+    restart: "no"
+
   ollama:
     image: ollama/ollama:latest
-    profiles:
-      - ollama
     ports:
       - "47434:11434"
     volumes:
@@ -50,10 +62,10 @@ services:
     environment:
       - OLLAMA_HOST=0.0.0.0:11434
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 30s
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
       timeout: 10s
-      retries: 3
+      retries: 10
 
   ollama-init:
     image: ollama/ollama:latest
@@ -61,13 +73,10 @@ services:
       ollama:
         condition: service_healthy
     entrypoint: /bin/sh
-    command:
-      - -c
-      - "ollama pull ${OLLAMA_MODEL:-gemma3:4b} && sleep 1000000"
+    command: ["-c", "ollama pull ${LLM_MODEL:-gemma3:4b}"]
     environment:
       - OLLAMA_HOST=http://ollama:11434
-    profiles:
-      - init
+    restart: "no"
 
   searxng:
     image: searxng/searxng:latest
@@ -78,7 +87,7 @@ services:
     environment:
       - INSTANCE_NAME=InvestWatch-SearXNG
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -110,8 +119,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
-    profiles:
-      - migrate
+    restart: "no"
 
   api:
     build:
@@ -124,8 +132,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      garage:
-        condition: service_started
+      garage-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
       REDIS_URL: redis://redis:6379
@@ -133,10 +143,11 @@ services:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-GK0123456789abcdef01234567}
       S3_SECRET_KEY: ${S3_SECRET_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       S3_BUCKET: ${S3_BUCKET:-investwatch-evidence}
-      LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434/v1}
       LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-google/gemma-3-12b-it}
+      LLM_MODEL: ${LLM_MODEL:-gemma3:4b}
       PROXY_URLS: ${PROXY_URLS:-}
+      SEARXNG_URL: http://searxng:8080
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
       DEBUG: "false"
     volumes:
@@ -157,8 +168,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      garage:
-        condition: service_started
+      garage-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
       REDIS_URL: redis://redis:6379
@@ -183,17 +196,22 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      ollama:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
       REDIS_URL: redis://redis:6379
-      LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434/v1}
       LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-google/gemma-3-12b-it}
+      LLM_MODEL: ${LLM_MODEL:-gemma3:4b}
       HF_HOME: /app/models/hf
       DEBUG: "false"
     volumes:
       - ./common:/app/common:ro
       - ./config:/app/config:ro
+      - ./data:/app/data:ro
       - ai_models:/app/models
 
   scheduler:
@@ -205,6 +223,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql://investwatch:investwatch-dev@postgres:5432/investwatch
       REDIS_URL: redis://redis:6379

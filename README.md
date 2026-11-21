@@ -7,16 +7,16 @@ Autonomiczny system nadzoru treści finansowych w sieci. Koncepcja: [docs/CONCEP
 - Docker + Docker Compose.
 - Referencyjnie: MacBook M3 Pro, 36 GB RAM. Minimum: 16 GB RAM, 4 rdzenie (Ollama + Playwright + Postgres razem są ciężkie).
 - Dla przyspieszenia LLM na macOS: natywna Ollama na hoście (patrz `.env.example`, `LLM_BASE_URL`), bo Docker na macOS nie ma dostępu do GPU/Metal.
+- Proxy do demonstracji rotacji: `docker compose --profile proxy up -d`, potem `PROXY_URLS=http://proxy-1:8118,http://proxy-2:8118`.
 
 ## Quick Start
 
 ```bash
-cp .env.example .env                              # wpisz LLM_API_KEY (OpenRouter)
-docker compose --profile migrate up migrate       # migracje + seed rejestru i użytkowników
-docker compose up -d garage
-./garage/init.sh                                   # jednorazowo: layout, klucz dostępu, bucket
+cp .env.example .env
 docker compose up
 ```
+
+Jedna komenda: migracje i seed rejestru (`migrate`), bootstrap storage'u (`garage-init`) oraz pobranie modelu LLM (`ollama-init`) uruchamiają się automatycznie. Pierwszy start pobiera obrazy i model (kilka GB).
 
 - Dashboard: http://localhost:47173
 - API: http://localhost:47800 (health: `/health`)
@@ -29,7 +29,7 @@ Wszystkie zmienne w `.env` (skopiowane z `.env.example`). Kluczowe:
 
 | Zmienna | Rola |
 |---|---|
-| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | endpoint zgodny z OpenAI: OpenRouter (domyślnie) lub Ollama `/v1` (`--profile ollama`, ADR-0002, ADR-0014) |
+| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | endpoint zgodny z OpenAI; domyślnie Ollama z compose (ADR-0002, ADR-0014) |
 | `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | dostęp do Garage (dowody: HTML, screenshoty) |
 | `PROXY_URLS` | pula proxy dla scrapera (ADR-0015), pusta = połączenie bezpośrednie |
 | `JWT_SECRET` | sekret sesji (ADR-0016) |

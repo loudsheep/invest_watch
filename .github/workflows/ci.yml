@@ -22,7 +22,13 @@ jobs:
       - name: Ruff lint
         run: ruff check common services/${{ matrix.service }}
       - name: pip-audit
-        run: pip-audit || true # advisory until dependency set stabilizes
+        run: |
+          uv pip compile services/${{ matrix.service }}/pyproject.toml common/pyproject.toml -q -o /tmp/req.txt
+          pip-audit -r /tmp/req.txt --no-deps --disable-pip
+      - name: Tests
+        run: |
+          uv pip install --system pytest
+          if [ -d services/${{ matrix.service }}/tests ]; then pytest services/${{ matrix.service }}/tests; fi
 
   frontend:
     runs-on: ubuntu-latest
@@ -33,10 +39,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-      - run: npm install
+          node-version: "22"
+      - run: npm ci
       - run: npm run lint
-      - run: npm audit --audit-level=high || true
+      - run: npm audit --audit-level=moderate
+
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
 
   secrets-scan:
     runs-on: ubuntu-latest

@@ -18,3 +18,5 @@ services/ai/models/
 data/dataset/
 
 docs/additional_materials
+
+*.tsbuildinfo

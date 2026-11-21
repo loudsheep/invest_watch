@@ -13,7 +13,7 @@
 - Retraining uses all analyst labels. Active learning is limited to the "Do oceny w pierwszej kolejności" queue (findings closest to the threshold); the model itself does not select training samples.
 - Auth is JWT-in-cookie only; there is no OIDC abstraction layer (ADR-0016 describes the intended swap).
 - YouTube captions (manual, then automatic in the original language) are used as the transcript. Local speech-to-text (faster-whisper) and frame OCR are not implemented.
-- Criteria 9 (comprehensibility) and 11 (comparisons) are heuristic (sentence length, jargon, source present), not LLM-judged.
+- Criteria 9 (comprehensibility) and 11 (comparisons) are judged by the LLM (`llm_judge` in `config/m2_rules.yaml`, verdict cached per document) and fall back to a heuristic (sentence length and jargon, source present) when the LLM is unreachable. The judge runs only for documents that already qualify as M2 findings.
 
 ## Decisions taken without mentor input
 

@@ -160,6 +160,7 @@ export function ModuleFacts({ data }: { data: FindingDetail }) {
   }
   if (data.module === "m3") {
     const offer = list(d.advisory_offer_evidence);
+    const registryIds = (d.registry_id_matches ?? []) as { id_type: string; number: string; entity: string; authorized: boolean }[];
     const lookalike = d.lookalike_domain as {
       suspected_domain: string;
       mimics_entity: string;
@@ -184,6 +185,16 @@ export function ModuleFacts({ data }: { data: FindingDetail }) {
             ) : (
               "-"
             )}
+          </dd>
+          <dt>Numery z rejestru (KRS/NIP)</dt>
+          <dd>
+            {registryIds.length
+              ? registryIds.map((m) => (
+                  <p key={`${m.id_type}${m.number}`}>
+                    {m.id_type} {m.number}: {m.entity} ({m.authorized ? "autoryzowany" : "lista ostrzeżeń KNF"})
+                  </p>
+                ))
+              : "-"}
           </dd>
           <dt>Wiek domeny</dt>
           <dd>

@@ -15,6 +15,7 @@ import Calibration from "./pages/Calibration";
 import Cases from "./pages/Cases";
 import SystemHealth from "./pages/SystemHealth";
 import FindingScreenshot from "./pages/FindingScreenshot";
+import Campaigns from "./pages/Campaigns";
 import Settings from "./pages/Settings";
 import ScanNow from "./pages/ScanNow";
 import Login from "./pages/Login";
@@ -118,6 +119,9 @@ export default function App() {
           <NavLink to="/cases" className="tabs__link">
             {pl["nav.cases"]}
           </NavLink>
+          <NavLink to="/campaigns" className="tabs__link">
+            {pl["nav.campaigns"]}
+          </NavLink>
           <NavLink to="/calibration" className="tabs__link">
             {pl["nav.calibration"]}
           </NavLink>
@@ -159,6 +163,7 @@ export default function App() {
           <Route path="/findings/:id" element={<FindingDetail />} />
           <Route path="/findings/:id/screenshot" element={<FindingScreenshot />} />
           <Route path="/cases" element={<Cases />} />
+          <Route path="/campaigns" element={<Campaigns />} />
           <Route path="/calibration" element={<Calibration />} />
           <Route path="/scan" element={<ScanNow />} />
           <Route path="/system" element={<SystemHealth />} />

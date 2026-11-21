@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import pl from "../i18n/pl.json";
 import Loading from "../components/Loading";
 import ModuleBadge from "../components/ModuleBadge";
 import QueryError from "../components/QueryError";
 import { api, type CalibrationMetrics } from "../lib/api";
-import { MODULES, moduleInfo } from "../lib/modules";
+import { MODULES, formatDate, moduleInfo } from "../lib/modules";
 
 const MIN_LABELS = 10;
 
@@ -46,11 +46,13 @@ export default function Calibration() {
 
   const retrain = useMutation({ mutationFn: () => api.retrain(module) });
 
+  const quality = useQuery({ queryKey: ["quality", module], queryFn: () => api.modelQuality(module) });
   const uncertain = useQuery({ queryKey: ["uncertain", module], queryFn: () => api.uncertainFindings(module) });
   const decide = useMutation({
     mutationFn: ({ id, status }: { id: number; status: "confirmed" | "dismissed" }) => api.updateFindingStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["uncertain", module] });
+      queryClient.invalidateQueries({ queryKey: ["quality", module] });
       queryClient.invalidateQueries({ queryKey: ["calibration", module] });
       queryClient.invalidateQueries({ queryKey: ["findings"] });
     },
@@ -217,6 +219,63 @@ export default function Calibration() {
               </section>
             </div>
           </div>
+
+          {quality.data && (
+            <div className="row-split">
+              <section className="panel row-split__main">
+                <div className="panel__head">
+                  <h2>Jakość modelu przy progu {fmt(quality.data.threshold)}</h2>
+                  <span className="muted">na ocenach analityka</span>
+                </div>
+                <div className="panel__body">
+                  <div className="confusion">
+                    <span />
+                    <span className="micro">model: zgłasza</span>
+                    <span className="micro">model: pomija</span>
+                    <span className="micro">analityk: potwierdził</span>
+                    <span className="confusion__cell confusion__cell--good">{quality.data.matrix.tp}<small>trafne (TP)</small></span>
+                    <span className="confusion__cell confusion__cell--bad">{quality.data.matrix.fn}<small>pominięte (FN)</small></span>
+                    <span className="micro">analityk: odrzucił</span>
+                    <span className="confusion__cell confusion__cell--bad">{quality.data.matrix.fp}<small>fałszywe alarmy (FP)</small></span>
+                    <span className="confusion__cell confusion__cell--good">{quality.data.matrix.tn}<small>trafnie pominięte (TN)</small></span>
+                  </div>
+                  <p className="micro">rozkład wyniku wg decyzji analityków</p>
+                  <ResponsiveContainer width="100%" height={140}>
+                    <BarChart data={quality.data.histogram.map((b) => ({ ...b, label: fmt(b.from, 1) }))}>
+                      <CartesianGrid vertical={false} stroke="#d8dce4" />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
+                      <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={24} tick={{ fontSize: 10 }} />
+                      <Tooltip />
+                      <Bar dataKey="confirmed" name="potwierdzone" stackId="a" fill="#16a34a" isAnimationActive={false} />
+                      <Bar dataKey="dismissed" name="odrzucone" stackId="a" fill="#dc2626" isAnimationActive={false} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </section>
+              <section className="panel row-split__side">
+                <div className="panel__head">
+                  <h2>Wersje modelu</h2>
+                  <span className="muted">metryki z walidacji krzyżowej</span>
+                </div>
+                {quality.data.runs.length === 0 && <p className="empty">Brak treningów. Oceń findingi i użyj "Przetrenuj model".</p>}
+                {quality.data.runs.map((run) => (
+                  <div className="table-row" key={run.version}>
+                    <span className="col-grow">
+                      <p className="cell-id">wersja {run.version}</p>
+                      <p className="muted mono">
+                        {formatDate(run.created_at)} · {run.labels} etykiet ({run.positives} pozytywnych)
+                      </p>
+                    </span>
+                    <span className="mono">
+                      {run.metrics
+                        ? `P ${fmt(run.metrics.precision)} · R ${fmt(run.metrics.recall)} · F1 ${fmt(run.metrics.f1)}`
+                        : "za mało danych"}
+                    </span>
+                  </div>
+                ))}
+              </section>
+            </div>
+          )}
 
           <section className="panel">
             <div className="panel__head">

@@ -89,3 +89,10 @@ The LLM client calls `/chat/completions` instead of Ollama's native `/api/genera
 - `GET /api/calibration/{module}/uncertain` returns unlabeled findings nearest to the threshold; deciding on them from the Kalibracja page creates labels.
 - `/api/auth/me` answers 200 with `null` for anonymous visitors so the login screen produces no console errors.
 - Tests: vitest (`frontend/src/**/*.test.ts`), Playwright E2E (`frontend/e2e`), pytest per service.
+
+## Campaigns, registry ids and model quality
+
+- `GET /api/campaigns?threshold=`: pgvector self-join on documents that have findings, connected components of pairs closer than `1 - threshold`; the page has a similarity slider (default 0.95, because e5 cosines sit around 0.83 for any Polish text).
+- KRS and NIP quoted in a document are matched against `entities.krs/nip` (digits only). A match with an entity from the public warnings list scores M3 at 0.95 and creates the finding even when the classifier relevance is low.
+- `model_runs` stores each retrain with out-of-fold precision, recall and F1; `GET /api/calibration/{module}/quality` adds the confusion matrix at the current threshold and the score distribution per analyst decision.
+- Demo fixtures: `finfluencer-kampania-*` (one campaign, three authors), `shadow-aurum-krs` (quotes a warning-list KRS/NIP), `landing-nordik-porownanie` (unsourced comparison and jargon, for the LLM-judged criteria).

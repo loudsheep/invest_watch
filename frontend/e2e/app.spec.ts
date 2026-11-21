@@ -61,7 +61,7 @@ test("an analyst decision changes the finding status", async ({ page }) => {
   await login(page);
   await nav(page, "Findingi").click();
   await page.locator(`main a[href^="/findings/"]`).first().click();
-  await page.getByRole("button", { name: "Przejmij" }).click();
+  await page.locator("button:not([disabled])", { hasText: /^(Przejmij|Potwierdź|Odrzuć)$/ }).first().click();
   await expect(page.getByRole("status")).toBeVisible();
 });
 
@@ -69,6 +69,20 @@ test("calibration shows the active-learning queue", async ({ page }) => {
   await login(page);
   await nav(page, "Kalibracja").click();
   await expect(page.getByRole("heading", { name: "Do oceny w pierwszej kolejności" })).toBeVisible();
+});
+
+test("campaigns page groups near-identical content across authors", async ({ page }) => {
+  await login(page);
+  await nav(page, "Kampanie").click();
+  await expect(page.getByRole("heading", { name: "Kampanie" })).toBeVisible();
+  await expect(page.getByText("Wspólne kody promo")).toBeVisible();
+});
+
+test("calibration shows the confusion matrix and model versions", async ({ page }) => {
+  await login(page);
+  await nav(page, "Kalibracja").click();
+  await expect(page.getByRole("heading", { name: /Jakość modelu/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Wersje modelu" })).toBeVisible();
 });
 
 test("settings page lists sources and the registry summary", async ({ page }) => {

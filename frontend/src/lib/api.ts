@@ -154,6 +154,41 @@ export interface CurrentUser {
   role: string;
 }
 
+export interface Campaign {
+  id: number;
+  size: number;
+  authors: string[];
+  domains: string[];
+  promo_codes: string[];
+  modules: string[];
+  max_score: number;
+  first_seen: string;
+  last_seen: string;
+  documents: {
+    document_id: number;
+    title: string | null;
+    url: string;
+    domain: string | null;
+    author: string | null;
+    platform: string | null;
+    fetched_at: string;
+    findings: { id: number; module: string; score: number }[];
+  }[];
+}
+
+export interface ModelQuality {
+  threshold: number;
+  matrix: { tp: number; fp: number; fn: number; tn: number };
+  histogram: { from: number; confirmed: number; dismissed: number }[];
+  runs: {
+    version: number;
+    created_at: string;
+    labels: number;
+    positives: number;
+    metrics: { precision: number; recall: number; f1: number; folds: number } | null;
+  }[];
+}
+
 export interface UncertainFinding {
   id: number;
   score: number;
@@ -209,6 +244,8 @@ export const api = {
 
   listEntities: (q?: string) => request(`/api/entities${q ? `?q=${encodeURIComponent(q)}` : ""}`),
 
+  campaigns: (threshold: number) => request<Campaign[]>(`/api/campaigns?threshold=${threshold}`),
+  modelQuality: (module: string) => request<ModelQuality>(`/api/calibration/${module}/quality`),
   uncertainFindings: (module: string) => request<UncertainFinding[]>(`/api/calibration/${module}/uncertain`),
   getCalibration: (module: string) => request<CalibrationMetrics>(`/api/calibration/${module}`),
   setThreshold: (module: string, threshold: number) =>

@@ -1,6 +1,19 @@
 # Seed phrases per module, used for topic centroids (classifier fallback) and
 # for YouTube/open-web discovery queries. Extend freely without touching code.
 
+# Off-topic phrases shared by all modules. The cold-start classifier scores a text by how much
+# closer it is to a module's topic phrases than to these (e5 cosines are high for any Polish text).
+negative_phrases:
+  - "prognoza pogody na weekend deszcz i wiatr"
+  - "przepis na szarlotkę jabłka mąka masło"
+  - "wyniki meczu piłki nożnej ekstraklasa"
+  - "wiadomości z kraju rząd przyjął nowy projekt ustawy"
+  - "oferta pracy programista python praca zdalna"
+  - "sklep internetowy buty sportowe w promocji darmowa dostawa"
+  - "recenzja nowego smartfona z szybkim aparatem"
+  - "komentarz do danych o inflacji i stopach procentowych"
+  - "regulamin konta bankowego i opłaty za przelewy"
+
 m1_finfluencer:
   topic_phrases:
     - "kod promocyjny broker inwestycyjny"

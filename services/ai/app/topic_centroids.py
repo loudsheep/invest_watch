@@ -1,5 +1,5 @@
-"""Precomputes one embedding centroid per module from config/taxonomies.yaml,
-used by the classifier head as a cold-start fallback before any training run.
+"""Embeds the topic and negative phrases from config/taxonomies.yaml, used by the
+classifier head as a cold-start fallback before any training run.
 """
 from functools import lru_cache
 from pathlib import Path
@@ -15,12 +15,19 @@ MODULE_KEY_MAP = {"m1": "m1_finfluencer", "m2": "m2_risk_disclosure", "m3": "m3_
 
 
 @lru_cache
-def get_centroid(module: str) -> list[float] | None:
-    taxonomy = yaml.safe_load(TAXONOMY_PATH.read_text(encoding="utf-8"))
-    key = MODULE_KEY_MAP.get(module)
-    phrases = (taxonomy.get(key) or {}).get("topic_phrases", [])
-    if not phrases:
+def _taxonomy() -> dict:
+    return yaml.safe_load(TAXONOMY_PATH.read_text(encoding="utf-8"))
+
+
+def _embed_all(phrases: list[str]) -> np.ndarray | None:
+    return np.array([embed(p) for p in phrases]) if phrases else None
+
+
+@lru_cache
+def get_topic_vectors(module: str) -> tuple[np.ndarray, np.ndarray | None] | None:
+    """(topic phrase vectors, negative phrase vectors or None) for a module."""
+    taxonomy = _taxonomy()
+    positive = _embed_all((taxonomy.get(MODULE_KEY_MAP.get(module)) or {}).get("topic_phrases", []))
+    if positive is None:
         return None
-    vectors = [embed(phrase) for phrase in phrases]
-    centroid = np.mean(vectors, axis=0)
-    return centroid.tolist()
+    return positive, _embed_all(taxonomy.get("negative_phrases", []))

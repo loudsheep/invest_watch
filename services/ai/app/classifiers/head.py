@@ -1,7 +1,7 @@
 """Lightweight per-module classification head on top of embeddings (ADR-0011):
 logistic regression + isotonic calibration, trained in seconds on CPU from
-weak-supervision / analyst labels. Falls back to a cosine-similarity-to-topic
-heuristic before the first training run, so M1/M2/M3 produce scores from day one.
+weak-supervision / analyst labels. Falls back to a topic-vs-noise contrast score
+before the first training run, so M1/M2/M3 produce scores from day one.
 """
 import json
 from pathlib import Path
@@ -37,19 +37,28 @@ def get_model_version(module: str) -> int:
     return 1
 
 
-def score_with_fallback(module: str, embedding: list[float], topic_centroid: list[float] | None) -> float:
+CONTRAST_SLOPE = 60.0
+
+
+def contrast_score(vec: np.ndarray, positive: np.ndarray, negative: np.ndarray | None) -> float:
+    """Sigmoid of how much closer the text is to the best topic phrase than to the best
+    off-topic phrase. Embeddings are normalized, so a dot product is the cosine."""
+    closest_topic = float(np.max(positive @ vec))
+    closest_noise = float(np.max(negative @ vec)) if negative is not None else 0.0
+    return float(1 / (1 + np.exp(-CONTRAST_SLOPE * (closest_topic - closest_noise))))
+
+
+def score_with_fallback(
+    module: str, embedding: list[float], topic_vectors: tuple[np.ndarray, np.ndarray | None] | None
+) -> float:
     head = load_head(module)
-    vec = np.array(embedding).reshape(1, -1)
+    vec = np.array(embedding)
 
     if head is not None:
-        proba = head.predict_proba(vec)[0][1]
-        return float(proba)
+        return float(head.predict_proba(vec.reshape(1, -1))[0][1])
 
-    if topic_centroid is not None:
-        centroid = np.array(topic_centroid)
-        cosine = float(np.dot(vec[0], centroid) / (np.linalg.norm(vec[0]) * np.linalg.norm(centroid) + 1e-9))
-        # Map cosine similarity [-1, 1] to a rough probability-like score.
-        return max(0.0, min(1.0, (cosine + 1) / 2))
+    if topic_vectors is not None:
+        return contrast_score(vec, *topic_vectors)
 
     return 0.1
 

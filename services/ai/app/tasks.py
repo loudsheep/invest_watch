@@ -11,7 +11,7 @@ from .classifiers.head import get_model_version, score_with_fallback, train_head
 from .embeddings import embed
 from .entity_resolution import find_entities_in_text, resolve_by_domain, resolve_mention
 from .llm import PROMPT_VERSION, analyze
-from .topic_centroids import get_centroid
+from .topic_centroids import get_topic_vectors
 
 logger = get_logger(__name__)
 
@@ -136,7 +136,7 @@ def process_document(document_id: int, scan_id: str | None = None):
         for module in ("m1", "m2", "m3"):
             details = _module_details(db, doc, module)
             rule_score = _rule_signal_score(module, details)
-            head_score = score_with_fallback(module, embedding, get_centroid(module))
+            head_score = score_with_fallback(module, embedding, get_topic_vectors(module))
             combined_score = max(rule_score, head_score)
 
             threshold = _get_threshold(module)

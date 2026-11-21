@@ -139,10 +139,12 @@ textarea {
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .module-badge svg {
   display: block;
+  flex: none;
 }
 
 .risk-cell {
@@ -520,7 +522,7 @@ a.table-row:hover {
 }
 
 .col-mod {
-  width: 44px;
+  width: 124px;
   flex: none;
 }
 

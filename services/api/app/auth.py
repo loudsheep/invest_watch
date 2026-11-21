@@ -1,12 +1,12 @@
 from datetime import UTC, datetime, timedelta
 
+import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import Cookie, Depends, HTTPException, status
 from investwatch_common.config import settings
 from investwatch_common.db import get_db
 from investwatch_common.models import User
-from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 hasher = PasswordHasher()
@@ -36,7 +36,7 @@ def get_current_user(
     try:
         payload = jwt.decode(iw_session, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
         user_id = int(payload["sub"])
-    except (JWTError, KeyError, ValueError) as exc:
+    except (jwt.PyJWTError, KeyError, ValueError) as exc:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid session") from exc
 
     user = db.get(User, user_id)

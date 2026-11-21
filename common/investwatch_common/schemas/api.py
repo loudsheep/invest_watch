@@ -73,6 +73,7 @@ class FindingDetail(FindingOut):
 
 class FindingStatusUpdate(BaseModel):
     status: str  # in_review, confirmed, dismissed, escalated
+    note: str | None = None
 
 
 class CaseOut(BaseModel):

@@ -1,4 +1,5 @@
 import time
+import urllib.request
 from pathlib import Path
 
 import yaml
@@ -7,15 +8,47 @@ from investwatch_common.config import settings
 from investwatch_common.db import get_db
 from investwatch_common.models import Document, Source, User
 from investwatch_common.redis_client import PROXY_CIRCUIT_KEY, PROXY_FAILURES_KEY, get_redis
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
+from ..storage import get_client
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 
 SOURCES_CONFIG_PATH = Path("/app/config/sources.yaml")
 QUEUES = ("scraping", "ai")
+
+
+def _http_ok(url: str) -> bool:
+    try:
+        with urllib.request.urlopen(url, timeout=2) as response:
+            return response.status < 500
+    except Exception:
+        return False
+
+
+def _check_services(db: Session) -> list[dict]:
+    def postgres() -> bool:
+        db.execute(text("SELECT 1"))
+        return True
+
+    checks = {
+        "postgres": postgres,
+        "redis": lambda: bool(get_redis().ping()),
+        "garage": lambda: get_client().bucket_exists(settings.s3_bucket),
+        "searxng": lambda: _http_ok(f"{settings.searxng_url}/healthz") or _http_ok(settings.searxng_url),
+        "llm": lambda: _http_ok(f"{settings.llm_base_url.rstrip('/')}/models"),
+    }
+    results = []
+    for name, check in checks.items():
+        started = time.monotonic()
+        try:
+            ok = bool(check())
+        except Exception:
+            ok = False
+        results.append({"name": name, "ok": ok, "latency_ms": round((time.monotonic() - started) * 1000)})
+    return results
 
 
 @router.get("/health")
@@ -56,4 +89,5 @@ def system_health(db: Session = Depends(get_db), _user: User = Depends(get_curre
         "queues": {name: redis_client.llen(name) for name in QUEUES},
         "collectors": collectors,
         "proxies": proxies,
+        "services": _check_services(db),
     }

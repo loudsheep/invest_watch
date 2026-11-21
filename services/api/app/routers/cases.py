@@ -1,12 +1,14 @@
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from investwatch_common.db import get_db
 from investwatch_common.models import Case, Finding, User
 from investwatch_common.schemas import CaseOut
 from sqlalchemy.orm import Session
 
+from ..audit import record
 from ..auth import get_current_user
+from ..report import build_case_report
 
 router = APIRouter(prefix="/api/cases", tags=["cases"])
 
@@ -38,6 +40,20 @@ def get_case(case_id: int, db: Session = Depends(get_db), _user: User = Depends(
             for f in findings
         ],
     }
+
+
+@router.get("/{case_id}/report.pdf")
+def case_report(case_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    case = db.get(Case, case_id)
+    if case is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Case not found")
+    findings = db.query(Finding).filter(Finding.id.in_(case.finding_ids or [])).all()
+    record(db, user.id, "evidence_access", "case", case.id, {"kind": "report"})
+    return Response(
+        build_case_report(case, findings),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="case-{case.id}.pdf"'},
+    )
 
 
 @router.get("/{case_id}/graph")

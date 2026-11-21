@@ -54,10 +54,15 @@ export default function App() {
     retry: (count, error) => !(error instanceof ApiError && error.status === 401) && count < 3,
     staleTime: Infinity,
   });
-  const alerts = useHighRiskAlerts(!!me.data);
+  const signedIn = !!me.data;
+  const alerts = useHighRiskAlerts(signedIn);
   const unreadCount = (alerts.data ?? []).filter((f) => !readIds.has(f.id)).length;
   const markRead = (ids: number[]) => setReadIds((prev) => new Set([...prev, ...ids]));
 
+  useEffect(() => {
+    if (signedIn) socket.connect();
+    else socket.disconnect();
+  }, [signedIn]);
 
   useEffect(() => {
     function onHighRisk(payload: HighRiskAlert) {

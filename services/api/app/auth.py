@@ -9,6 +9,9 @@ from investwatch_common.db import get_db
 from investwatch_common.models import User
 from sqlalchemy.orm import Session
 
+if not settings.jwt_secret:
+    raise RuntimeError("JWT_SECRET is not set; define it in .env")
+
 hasher = PasswordHasher()
 
 COOKIE_NAME = "iw_session"
@@ -27,17 +30,23 @@ def create_access_token(user: User) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
+def user_id_from_token(token: str) -> int | None:
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        return int(payload["sub"])
+    except (jwt.PyJWTError, KeyError, ValueError):
+        return None
+
+
 def get_current_user(
     iw_session: str | None = Cookie(default=None, alias=COOKIE_NAME),
     db: Session = Depends(get_db),
 ) -> User:
     if not iw_session:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")
-    try:
-        payload = jwt.decode(iw_session, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-        user_id = int(payload["sub"])
-    except (jwt.PyJWTError, KeyError, ValueError) as exc:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid session") from exc
+    user_id = user_id_from_token(iw_session)
+    if user_id is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid session")
 
     user = db.get(User, user_id)
     if user is None:

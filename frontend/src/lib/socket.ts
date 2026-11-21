@@ -4,5 +4,5 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:47800";
 
 export const socket = io(API_URL, {
   withCredentials: true,
-  autoConnect: true,
+  autoConnect: false,
 });

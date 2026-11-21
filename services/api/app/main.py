@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from investwatch_common import config
 from investwatch_common.logging import configure_logging
 
 from .pubsub_bridge import listen_pubsub
@@ -24,7 +25,7 @@ app = FastAPI(title="InvestWatch API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:47173", "http://localhost:5173"],
+    allow_origins=config.settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

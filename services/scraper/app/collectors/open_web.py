@@ -3,7 +3,7 @@ computed styles (needed for M2 visual prominence), httpx as a cheap fallback whe
 Playwright is not required. Respects robots.txt by default (ADR per CONCEPT ch.9).
 """
 from collections.abc import Iterator
-from urllib.parse import urljoin
+from urllib.parse import unquote, urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 
 import httpx
@@ -92,6 +92,18 @@ STYLE_EXTRACTION_SCRIPT = """
 """
 
 
+def _playwright_proxy(proxy_url: str | None) -> dict | None:
+    """Chromium ignores credentials embedded in the proxy URL, so they are passed separately."""
+    if not proxy_url:
+        return None
+    parsed = urlparse(proxy_url)
+    proxy = {"server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port}"}
+    if parsed.username:
+        proxy["username"] = unquote(parsed.username)
+        proxy["password"] = unquote(parsed.password or "")
+    return proxy
+
+
 class OpenWebCollector(Collector):
     name = "open_web"
 
@@ -139,7 +151,7 @@ class OpenWebCollector(Collector):
         try:
             with sync_playwright() as p:
                 browser = p.chromium.launch(
-                    proxy={"server": proxy_url} if proxy_url else None,
+                    proxy=_playwright_proxy(proxy_url),
                 )
                 page = browser.new_page(
                     user_agent=profile["user_agent"],

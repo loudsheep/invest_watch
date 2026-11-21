@@ -25,6 +25,10 @@ export interface Finding {
   score: number;
   status: string;
   created_at: string;
+  title?: string | null;
+  domain?: string | null;
+  entity_name?: string | null;
+  platform?: string;
 }
 
 export interface Mention {

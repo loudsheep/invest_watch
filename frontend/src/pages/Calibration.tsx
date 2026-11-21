@@ -1,11 +1,26 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import pl from "../i18n/pl.json";
 import Loading from "../components/Loading";
+import ModuleBadge from "../components/ModuleBadge";
 import QueryError from "../components/QueryError";
-import { api } from "../lib/api";
+import SoonTag from "../components/SoonTag";
+import { api, type CalibrationMetrics } from "../lib/api";
 import { MODULES, moduleInfo } from "../lib/modules";
+
+function fmt(value: number, digits = 2): string {
+  return value.toFixed(digits).replace(".", ",");
+}
+
+function bestF1(curve: CalibrationMetrics["pr_curve"]) {
+  let best: { threshold: number; f1: number } | null = null;
+  curve.forEach((p) => {
+    const f1 = p.precision + p.recall === 0 ? 0 : (2 * p.precision * p.recall) / (p.precision + p.recall);
+    if (!best || f1 > best.f1) best = { threshold: p.threshold, f1 };
+  });
+  return best as { threshold: number; f1: number } | null;
+}
 
 export default function Calibration() {
   const [module, setModule] = useState("m1");
@@ -31,106 +46,181 @@ export default function Calibration() {
 
   const color = moduleInfo(module).color;
   const threshold = draft ?? data?.threshold ?? 0.5;
+  const curve = [...(data?.pr_curve ?? [])].sort((a, b) => a.recall - b.recall);
+  const atThreshold = curve.reduce<(typeof curve)[number] | null>(
+    (nearest, p) => (!nearest || Math.abs(p.threshold - threshold) < Math.abs(nearest.threshold - threshold) ? p : nearest),
+    null,
+  );
+  const suggested = data ? bestF1(data.pr_curve) : null;
+  const moduleName = moduleInfo(module).short;
 
   return (
     <>
-      <h1 className="page__title">{pl["calibration.title"]}</h1>
-      <p className="lede">{pl["calibration.lede"]}</p>
+      <div className="page__header">
+        <div>
+          <h1 className="page__title">{pl["calibration.title"]}</h1>
+          <p className="page__sub">{pl["calibration.lede"]}</p>
+        </div>
+        <div className="calib-actions">
+          <span className="muted mono calib-actions__meta is-soon">
+            model, liczba etykiet <SoonTag />
+          </span>
+          <button className="btn btn--primary" disabled={!isAdmin || retrain.isPending} onClick={() => retrain.mutate()}>
+            {retrain.isPending ? `${pl["calibration.retrain"]}...` : pl["calibration.retrain"]}
+          </button>
+        </div>
+      </div>
 
-      <div className="chips" role="group" aria-label={pl["common.module"]}>
-        <span className="chips__label">{pl["common.module"]}</span>
+      <div className="segmented" role="group" aria-label={pl["common.module"]}>
         {MODULES.map((m) => (
           <button
             key={m.id}
-            className="chip"
+            className={`segmented__item${module === m.id ? " segmented__item--on" : ""}`}
             aria-pressed={module === m.id}
             onClick={() => {
               setModule(m.id);
               setDraft(null);
             }}
           >
-            {m.short} {m.name}
+            <ModuleBadge module={m.id} /> {m.name}
           </button>
         ))}
       </div>
 
+      {!isAdmin && me.isSuccess && <p className="muted">{pl["calibration.adminOnly"]}</p>}
       {isPending && <Loading />}
       {isError && <QueryError onRetry={() => refetch()} />}
       {setThreshold.isError && <QueryError message="Nie udało się zapisać progu." onRetry={() => draft !== null && setThreshold.mutate(draft)} />}
       {retrain.isError && <QueryError message="Nie udało się uruchomić trenowania." onRetry={() => retrain.mutate()} />}
+      {retrain.isSuccess && (
+        <p className="saved" role="status">
+          {pl["calibration.retrainStarted"]}
+        </p>
+      )}
 
       {data && (
-        <div className="split split--calibration">
-          <section>
-            <label className="threshold" htmlFor="threshold">
-              <span className="field__label">{pl["calibration.threshold"]}</span>
-              <span className="threshold__value">{threshold.toFixed(2)}</span>
-            </label>
-            <input
-              id="threshold"
-              className="slider"
-              style={{ accentColor: color }}
-              type="range"
-              disabled={!isAdmin}
-              min={0}
-              max={1}
-              step={0.01}
-              value={threshold}
-              onChange={(e) => setDraft(Number(e.target.value))}
-              onPointerUp={() => draft !== null && setThreshold.mutate(draft)}
-              onKeyUp={() => draft !== null && setThreshold.mutate(draft)}
-            />
+        <>
+          <div className="row-split">
+            <section className="panel row-split__main">
+              <div className="panel__head">
+                <h2>
+                  {pl["calibration.curve"]} · {moduleName}
+                </h2>
+                <span className="muted mono">punkt pracy dla progu {fmt(threshold)}</span>
+              </div>
+              <div className="panel__body">
+                <div className="legend">
+                  <span className="legend__item">
+                    <span className="legend__line" style={{ background: "var(--brand)" }} /> model aktualny
+                  </span>
+                  <span className="legend__item is-soon">
+                    <span className="legend__line legend__line--dashed" /> poprzedni model <SoonTag />
+                  </span>
+                </div>
+                <ResponsiveContainer width="100%" height={340}>
+                  <AreaChart data={curve}>
+                    <CartesianGrid stroke="#d8dce4" />
+                    <XAxis
+                      dataKey="recall"
+                      type="number"
+                      domain={[0, 1]}
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 10, fontFamily: "IBM Plex Mono" }}
+                      label={{ value: "Czułość (recall)", position: "insideBottom", offset: -4, fontSize: 11 }}
+                    />
+                    <YAxis
+                      domain={[0, 1]}
+                      tickLine={false}
+                      axisLine={false}
+                      width={32}
+                      tick={{ fontSize: 10, fontFamily: "IBM Plex Mono" }}
+                    />
+                    <Tooltip formatter={(v: number) => fmt(v)} />
+                    <Area type="monotone" dataKey="precision" name={pl["calibration.precision"]} stroke="#2340d8" strokeWidth={2} fill="#e3e8fc" />
+                    {atThreshold && <ReferenceDot x={atThreshold.recall} y={atThreshold.precision} r={5} fill="#fff" stroke="#2340d8" strokeWidth={2} />}
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
 
-            <dl className="metrics">
-              <div>
-                <dt>{pl["calibration.precision"]}</dt>
-                <dd>{(data.precision * 100).toFixed(1)}%</dd>
-              </div>
-              <div>
-                <dt>{pl["calibration.recall"]}</dt>
-                <dd>{(data.recall * 100).toFixed(1)}%</dd>
-              </div>
-              <div>
-                <dt>{pl["calibration.falsePositives"]}</dt>
-                <dd>{data.false_positives}</dd>
-              </div>
-              <div>
-                <dt>{pl["calibration.falseNegatives"]}</dt>
-                <dd>{data.false_negatives}</dd>
-              </div>
-            </dl>
+            <div className="row-split__side">
+              <section className="panel">
+                <div className="panel__head">
+                  <h2>Próg wysokiego ryzyka · {moduleName}</h2>
+                </div>
+                <div className="panel__body">
+                  <div className="threshold-row">
+                    <span className="threshold-big">{fmt(threshold)}</span>
+                    {suggested && (
+                      <span className="threshold-hint">
+                        <strong>sugerowany: {fmt(suggested.threshold)}</strong>
+                        <span className="muted mono">maks. F1 = {fmt(suggested.f1)}</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="is-soon calib-hist" title="Wymaga rozkładu score wg decyzji analityków w API">
+                    rozkład score: potwierdzone / odrzucone <SoonTag />
+                  </div>
+                  <input
+                    id="threshold"
+                    className="slider"
+                    style={{ accentColor: color }}
+                    type="range"
+                    disabled={!isAdmin}
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={threshold}
+                    aria-label={pl["calibration.threshold"]}
+                    onChange={(e) => setDraft(Number(e.target.value))}
+                    onPointerUp={() => draft !== null && setThreshold.mutate(draft)}
+                    onKeyUp={() => draft !== null && setThreshold.mutate(draft)}
+                  />
+                </div>
+              </section>
 
-            {isAdmin ? (
-              <button className="btn btn--ghost" disabled={retrain.isPending} onClick={() => retrain.mutate()}>
-                {retrain.isPending ? `${pl["calibration.retrain"]}...` : pl["calibration.retrain"]}
-              </button>
-            ) : (
-              <p className="empty">{pl["calibration.adminOnly"]}</p>
-            )}
-            {retrain.isSuccess && (
-              <p className="saved" role="status">
-                {pl["calibration.retrainStarted"]}
-              </p>
-            )}
-          </section>
-
-          <section>
-            <h2 className="section__title">{pl["calibration.curve"]}</h2>
-            <div className="chart">
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={data.pr_curve}>
-                  <CartesianGrid vertical={false} stroke="#c3ced2" />
-                  <XAxis dataKey="threshold" type="number" domain={[0, 1]} tickLine={false} axisLine={false} />
-                  <YAxis domain={[0, 1]} tickLine={false} axisLine={false} width={32} />
-                  <Tooltip />
-                  <ReferenceLine x={threshold} stroke="#12252d" strokeDasharray="4 3" />
-                  <Line type="monotone" dataKey="precision" name={pl["calibration.precision"]} stroke={color} strokeWidth={2.5} dot={false} />
-                  <Line type="monotone" dataKey="recall" name={pl["calibration.recall"]} stroke="#4b5f68" strokeWidth={2} strokeDasharray="5 4" dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+              <section className="panel stat-grid">
+                <div className="stat-grid__cell">
+                  <span className="kpi__label">{pl["calibration.precision"]}</span>
+                  <span className="kpi__value">{fmt(data.precision)}</span>
+                </div>
+                <div className="stat-grid__cell">
+                  <span className="kpi__label">{pl["calibration.recall"]}</span>
+                  <span className="kpi__value">{fmt(data.recall)}</span>
+                </div>
+                <div className="stat-grid__cell">
+                  <span className="kpi__label">{pl["calibration.falsePositives"]}</span>
+                  <span className="kpi__value kpi__value--high">{data.false_positives}</span>
+                  <span className="kpi__note">FP · odrzucone mimo zgłoszenia</span>
+                </div>
+                <div className="stat-grid__cell">
+                  <span className="kpi__label">{pl["calibration.falseNegatives"]}</span>
+                  <span className="kpi__value kpi__value--critical">{data.false_negatives}</span>
+                  <span className="kpi__note">FN · potwierdzone poniżej progu</span>
+                </div>
+              </section>
             </div>
+          </div>
+
+          <section className="panel is-soon">
+            <div className="panel__head">
+              <h2>
+                Wersje modelu <SoonTag />
+              </h2>
+              <span className="muted">Przetrenowanie podbija model_version, a decyzje analityka trafiają do zbioru etykiet</span>
+            </div>
+            <div className="table-head micro">
+              <span className="col-grow">Wersja</span>
+              <span className="col-grow">Data</span>
+              <span className="col-grow">Etykiety</span>
+              <span className="col-grow">Precyzja</span>
+              <span className="col-grow">Czułość</span>
+              <span className="col-grow">Uwagi</span>
+            </div>
+            <p className="empty">Brak endpointu z historią wersji modelu.</p>
           </section>
-        </div>
+        </>
       )}
     </>
   );

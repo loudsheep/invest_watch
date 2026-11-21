@@ -75,7 +75,7 @@
   "scan.stageFailed": "Ten etap zakończył się błędem.",
   "scan.failed": "Skanowanie nie powiodło się. Sprawdź adres i spróbuj jeszcze raz.",
   "login.tagline": "Nadzór nad treściami inwestycyjnymi w sieci",
-  "login.lede": "Trzy moduły ciągle sprawdzają, co w internecie obiecuje zyski: finfluencerzy, informacja o ryzyku i doradztwo bez zezwolenia.",
+  "login.lede": "Nadzór nad treściami inwestycyjnymi w polskim internecie. Trzy moduły analizują strony i profile, a analityk decyduje.",
   "login.username": "Nazwa użytkownika",
   "login.password": "Hasło",
   "login.submit": "Zaloguj",
@@ -134,5 +134,10 @@
   "system.proxy.failures": "błędów",
   "system.proxy.open": "wyłączone (circuit breaker)",
   "system.proxy.ok": "działa",
-  "calibration.adminOnly": "Zmiana progu i trenowanie modelu są dostępne tylko dla administratora."
+  "calibration.adminOnly": "Zmiana progu i trenowanie modelu są dostępne tylko dla administratora.",
+  "nav.alerts": "Alerty",
+  "live.label.on": "Na żywo",
+  "live.label.off": "Offline",
+  "overview.queue.title": "Kolejka do przeglądu",
+  "login.tagline.title": "Co w sieci obiecuje zyski, sprawdzamy bez przerwy."
 }

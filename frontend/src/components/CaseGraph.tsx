@@ -5,13 +5,6 @@ import Loading from "./Loading";
 import QueryError from "./QueryError";
 
 const COLUMNS: GraphNode["type"][] = ["advertiser", "entity", "document", "promo_code", "domain"];
-const COLORS: Record<GraphNode["type"], string> = {
-  advertiser: "#7b3a6b",
-  entity: "#1d6e7a",
-  document: "#4b5f68",
-  promo_code: "#b06f12",
-  domain: "#b3202f",
-};
 const COL_WIDTH = 170;
 const ROW_HEIGHT = 44;
 const NODE_W = 150;
@@ -45,6 +38,14 @@ export default function CaseGraph({ caseId }: { caseId: number }) {
 
   return (
     <div className="graph">
+      <ul className="graph__legend">
+        {columns.map((type) => (
+          <li key={type}>
+            <span className={`graph__swatch graph__swatch--${type}`} />
+            {labels[`graph.${type}`]}
+          </li>
+        ))}
+      </ul>
       <svg viewBox={`0 0 ${width} ${height}`} width="100%" role="img" aria-label={pl["cases.graph"]}>
         {columns.map((type, col) => (
           <text key={type} x={col * COL_WIDTH + 10} y={16} className="graph__column">
@@ -72,8 +73,8 @@ export default function CaseGraph({ caseId }: { caseId: number }) {
           return (
             <g key={n.id}>
               <title>{n.label}</title>
-              <rect x={p.x} y={p.y} width={NODE_W} height={NODE_H} rx={3} fill={COLORS[n.type]} />
-              <text x={p.x + 8} y={p.y + 19} className="graph__label">
+              <rect x={p.x} y={p.y} width={NODE_W} height={NODE_H} rx={n.type === "advertiser" ? NODE_H / 2 : 3} className={`graph__node graph__node--${n.type}`} />
+              <text x={p.x + 10} y={p.y + 19} className={`graph__label graph__label--${n.type}`}>
                 {truncate(n.label, 22)}
               </text>
             </g>

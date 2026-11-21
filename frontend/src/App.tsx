@@ -4,7 +4,9 @@ import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import pl from "./i18n/pl.json";
 import { api } from "./lib/api";
 import { socket } from "./lib/socket";
-import ModuleTag from "./components/ModuleTag";
+import AlertsPanel, { useHighRiskAlerts } from "./components/AlertsPanel";
+import ModuleBadge from "./components/ModuleBadge";
+import RiskCell from "./components/RiskCell";
 import Overview from "./pages/Overview";
 import Findings from "./pages/Findings";
 import FindingDetail from "./pages/FindingDetail";
@@ -41,6 +43,11 @@ export default function App() {
   const navigate = useNavigate();
   const [alert, setAlert] = useState<HighRiskAlert | null>(null);
   const connected = useSocketStatus();
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [readIds, setReadIds] = useState<Set<number>>(new Set());
+  const alerts = useHighRiskAlerts();
+  const unreadCount = (alerts.data ?? []).filter((f) => !readIds.has(f.id)).length;
+  const markRead = (ids: number[]) => setReadIds((prev) => new Set([...prev, ...ids]));
 
   const me = useQuery({ queryKey: ["me"], queryFn: api.me, retry: false, staleTime: Infinity });
 
@@ -76,48 +83,54 @@ export default function App() {
     return <Login />;
   }
 
+  const initials = me.data.username.slice(0, 2).toUpperCase();
+
   return (
     <div className="shell">
       <header className="topbar">
-        <div className="topbar__inner">
-          <span className="brand">InvestWatch</span>
-          <nav className="tabs" aria-label="Główna nawigacja">
-            <NavLink to="/" end className="tabs__link">
-              {pl["nav.overview"]}
-            </NavLink>
-            <NavLink to="/findings" className="tabs__link">
-              {pl["nav.findings"]}
-            </NavLink>
-            <NavLink to="/cases" className="tabs__link">
-              {pl["nav.cases"]}
-            </NavLink>
-            <NavLink to="/calibration" className="tabs__link">
-              {pl["nav.calibration"]}
-            </NavLink>
-            <NavLink to="/scan" className="tabs__link">
-              {pl["nav.scan"]}
-            </NavLink>
-            <NavLink to="/system" className="tabs__link">
-              {pl["nav.system"]}
-            </NavLink>
-          </nav>
-          <div className="topbar__user">
-            <span
-              className={`live${connected ? " live--on" : ""}`}
-              title={connected ? pl["live.on"] : pl["live.off"]}
-              role="status"
-            >
-              <span className="visually-hidden">{connected ? pl["live.on"] : pl["live.off"]}</span>
-            </span>
-            <span className="user">
-              {me.data.username}
-              <span className="user__role">{me.data.role}</span>
-            </span>
-            <button className="btn btn--quiet" onClick={handleLogout}>
-              {pl["nav.logout"]}
-            </button>
-          </div>
+        <span className="wordmark">
+          <span className="wordmark__mark" aria-hidden="true" />
+          investwatch
+        </span>
+        <nav className="tabs" aria-label="Główna nawigacja">
+          <NavLink to="/" end className="tabs__link">
+            {pl["nav.overview"]}
+          </NavLink>
+          <NavLink to="/findings" className="tabs__link">
+            {pl["nav.findings"]}
+          </NavLink>
+          <NavLink to="/cases" className="tabs__link">
+            {pl["nav.cases"]}
+          </NavLink>
+          <NavLink to="/calibration" className="tabs__link">
+            {pl["nav.calibration"]}
+          </NavLink>
+          <NavLink to="/scan" className="tabs__link">
+            {pl["nav.scan"]}
+          </NavLink>
+          <NavLink to="/system" className="tabs__link">
+            {pl["nav.system"]}
+          </NavLink>
+        </nav>
+        <span className="topbar__spacer" />
+        <span className={`live${connected ? " live--on" : ""}`} role="status">
+          <span className="live__dot" aria-hidden="true" />
+          {connected ? pl["live.label.on"] : pl["live.label.off"]}
+        </span>
+        <div className="alerts-wrap">
+          <button className="alerts-btn" aria-expanded={panelOpen} onClick={() => setPanelOpen(!panelOpen)}>
+            {pl["nav.alerts"]}
+            {unreadCount > 0 && <span className="count-badge">{unreadCount}</span>}
+          </button>
+          {panelOpen && <AlertsPanel readIds={readIds} onMarkRead={markRead} onClose={() => setPanelOpen(false)} />}
         </div>
+        <button className="user" onClick={handleLogout} title={pl["nav.logout"]}>
+          <span className="user__avatar">{initials}</span>
+          <span>
+            <span className="user__name">{me.data.username}</span>
+            <span className="user__role">{me.data.role}</span>
+          </span>
+        </button>
       </header>
 
       <main className="page">
@@ -133,19 +146,25 @@ export default function App() {
       </main>
 
       {alert && (
-        <button
-          className="alert"
-          role="alert"
-          onClick={() => {
-            navigate(`/findings/${alert.id}`);
-            setAlert(null);
-          }}
-        >
-          <span className="alert__stamp">{pl["toast.highRisk"]}</span>
-          <span className="alert__body">
-            <ModuleTag module={alert.module} /> {alert.document_title || pl["toast.untitled"]}
+        <div className="alert" role="alert">
+          <span className="alert__head">
+            <span className="alert__stamp">{pl["toast.highRisk"]}</span>
+            <ModuleBadge module={alert.module} />
           </span>
-        </button>
+          <span className="alert__title">{alert.document_title || pl["toast.untitled"]}</span>
+          <span className="alert__foot">
+            <RiskCell score={alert.score} />
+            <button
+              className="linkbtn"
+              onClick={() => {
+                navigate(`/findings/${alert.id}`);
+                setAlert(null);
+              }}
+            >
+              Otwórz finding →
+            </button>
+          </span>
+        </div>
       )}
     </div>
   );

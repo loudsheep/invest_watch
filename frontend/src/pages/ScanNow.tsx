@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import pl from "../i18n/pl.json";
 import Loading from "../components/Loading";
+import ModuleBadge from "../components/ModuleBadge";
 import QueryError from "../components/QueryError";
+import SoonTag from "../components/SoonTag";
 import { api } from "../lib/api";
 import { socket } from "../lib/socket";
 
@@ -10,6 +12,10 @@ interface StageEvent {
   stage: string;
   status: string;
   message?: string | null;
+}
+
+interface TimedEvent extends StageEvent {
+  at: number;
 }
 
 const STAGES = ["fetch", "preprocess", "embed", "classify", "llm", "done"] as const;
@@ -23,19 +29,26 @@ function stageState(event: StageEvent | undefined): "waiting" | "running" | "don
   return "running";
 }
 
+function clock(at: number): string {
+  const d = new Date(at);
+  return `${d.toLocaleTimeString("pl-PL", { hour12: false })}.${String(d.getMilliseconds()).padStart(3, "0")}`;
+}
+
 export default function ScanNow() {
   const [url, setUrl] = useState("");
   const [scanId, setScanId] = useState<string | null>(null);
-  const [events, setEvents] = useState<StageEvent[]>([]);
+  const [events, setEvents] = useState<TimedEvent[]>([]);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [requestFailed, setRequestFailed] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
+  const connected = socket.connected;
 
   useEffect(() => {
     function onStage(event: StageEvent) {
       if (event.scan_id !== scanId) return;
       setTimedOut(false);
-      setEvents((prev) => [...prev, event]);
+      setEvents((prev) => [...prev, { ...event, at: Date.now() }]);
     }
     socket.on("scan_stage", onStage);
     return () => {
@@ -61,6 +74,7 @@ export default function ScanNow() {
     try {
       const { scan_id } = await api.scanUrl(url);
       setScanId(scan_id);
+      setStartedAt(Date.now());
       socket.emit("subscribe_scan", { scan_id });
     } catch {
       setRequestFailed(true);
@@ -73,15 +87,26 @@ export default function ScanNow() {
   const failedEvent = events.find((ev) => ev.status === "error");
   const finished = latest.get("done")?.status === "done" || !!failedEvent;
   const inFlight = submitting || (!!scanId && !finished && !timedOut);
+  const total = finished && startedAt ? ((events[events.length - 1].at - startedAt) / 1000).toFixed(1).replace(".", ",") : null;
+
+  function duration(stage: string, index: number): string | null {
+    const event = latest.get(stage);
+    if (!event || stageState(event) === "waiting") return null;
+    const previous = index === 0 ? startedAt : latest.get(STAGES[index - 1])?.at;
+    if (!previous) return null;
+    return `${((event.at - previous) / 1000).toFixed(1).replace(".", ",")} s`;
+  }
 
   return (
     <>
-      <h1 className="page__title">{pl["scan.title"]}</h1>
-      <p className="lede">{pl["scan.lede"]}</p>
+      <div>
+        <h1 className="page__title">{pl["scan.title"]}</h1>
+        <p className="page__sub">{pl["scan.lede"]}</p>
+      </div>
 
-      <form className="scanform" onSubmit={handleScan}>
+      <form className="panel scanform" onSubmit={handleScan}>
         <input
-          className="input input--wide"
+          className="input scanform__input"
           type="url"
           required
           placeholder={pl["scan.placeholder"]}
@@ -89,8 +114,10 @@ export default function ScanNow() {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
         />
-        <button className="btn btn--busy" type="submit" disabled={inFlight || !url}>
-          {inFlight && <span className="spinner spinner--light" aria-hidden="true" />}
+        <select className="input scanform__modules is-soon" disabled title="API skanu przyjmuje tylko adres" aria-label="Moduły">
+          <option>Moduły: wszystkie</option>
+        </select>
+        <button className="btn btn--primary" type="submit" disabled={inFlight || !url}>
           {submitting ? pl["scan.starting"] : inFlight ? pl["scan.running"] : pl["scan.button"]}
         </button>
       </form>
@@ -100,23 +127,76 @@ export default function ScanNow() {
 
       {scanId && (
         <>
-          <ol className="stages" aria-label={pl["scan.running"]}>
-            {STAGES.map((stage) => {
-              const event = latest.get(stage);
-              const state = stageState(event);
-              return (
-                <li key={stage} className={`stage stage--${state}`}>
-                  <span className="stage__dot" aria-hidden="true" />
-                  <span className="stage__name">{labels[`scan.stage.${stage}`]}</span>
-                  {state === "error" && (
-                    <span className="stage__msg stage__msg--error">{event?.message || pl["scan.stageFailed"]}</span>
-                  )}
-                  {state !== "error" && event?.message && <span className="stage__msg">{event.message}</span>}
-                </li>
-              );
-            })}
-          </ol>
+          <section className="panel">
+            <div className="panel__head">
+              <h2>Przebieg skanu</h2>
+              <span className="muted mono">
+                {scanId.slice(0, 8)}
+                {total ? ` · ${total} s` : ""}
+              </span>
+            </div>
+            <ol className="stepper" aria-label={pl["scan.running"]}>
+              {STAGES.map((stage, index) => {
+                const event = latest.get(stage);
+                const state = stageState(event);
+                return (
+                  <li key={stage} className={`step step--${state}`}>
+                    <span className="step__dot" aria-hidden="true">
+                      {state === "done" ? "✓" : state === "error" ? "!" : state === "running" ? "" : index + 1}
+                    </span>
+                    <span className="step__name">{labels[`scan.stage.${stage}`]}</span>
+                    <span className="step__time mono">{state === "waiting" ? "oczekuje" : duration(stage, index)}</span>
+                    {state === "error" ? (
+                      <span className="step__msg step__msg--error">{event?.message || pl["scan.stageFailed"]}</span>
+                    ) : (
+                      event?.message && <span className="step__msg">{event.message}</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
           {!started && !timedOut && <Loading label={pl["scan.queued"]} />}
+
+          <div className="row-split">
+            <section className="panel row-split__main">
+              <div className="panel__head">
+                <h2>Zdarzenia na żywo</h2>
+                <span className={connected ? "ok-text" : "muted"}>WebSocket · {connected ? "połączono" : "brak połączenia"}</span>
+              </div>
+              <ul className="eventlog">
+                {events.map((ev, i) => (
+                  <li key={i}>
+                    <span className="muted mono">{clock(ev.at)}</span>
+                    <span className={`eventlog__name mono${ev.status === "error" ? " text-critical" : ""}`}>
+                      {ev.stage}.{ev.status}
+                    </span>
+                    <span className="eventlog__msg">{ev.message}</span>
+                  </li>
+                ))}
+                {events.length === 0 && <li className="muted">Oczekiwanie na pierwsze zdarzenie</li>}
+              </ul>
+            </section>
+
+            <section className="panel row-split__side is-soon">
+              <div className="panel__head">
+                <h2>Wstępny wynik</h2>
+                <SoonTag />
+              </div>
+              <div className="panel__body levels">
+                {["m1", "m2", "m3"].map((m) => (
+                  <div className="levels__row" key={m}>
+                    <span className="levels__label">
+                      <ModuleBadge module={m} />
+                    </span>
+                    <span className="levels__track" />
+                    <span className="levels__count">-</span>
+                  </div>
+                ))}
+                <p className="muted">Wyniki modułów per etap wymagają pola score w zdarzeniu scan_stage.</p>
+              </div>
+            </section>
+          </div>
         </>
       )}
     </>

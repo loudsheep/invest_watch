@@ -8,9 +8,9 @@ interface QueryErrorProps {
 export default function QueryError({ onRetry, message }: QueryErrorProps) {
   return (
     <div className="notice" role="alert">
-      <p className="notice__text">{message ?? pl["common.error"]}</p>
+      <p>{message ?? pl["common.error"]}</p>
       {onRetry && (
-        <button className="btn btn--ghost btn--small" onClick={onRetry}>
+        <button className="btn btn--secondary btn--small" onClick={onRetry}>
           {pl["common.retry"]}
         </button>
       )}

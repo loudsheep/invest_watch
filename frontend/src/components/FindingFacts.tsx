@@ -1,5 +1,6 @@
 import pl from "../i18n/pl.json";
 import type { FindingDetail } from "../lib/api";
+import SoonTag from "./SoonTag";
 
 interface Criterion {
   id: string;
@@ -21,131 +22,148 @@ interface FontComparison {
 
 type Details = Record<string, unknown>;
 
+export interface Quote {
+  label: string;
+  text: string;
+  tone: "claim" | "warning";
+}
+
 function list(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String) : [];
 }
 
-export function quotesFor(data: FindingDetail): string[] {
+export function quotesFor(data: FindingDetail): Quote[] {
   const d = data.details as Details;
   const llm = (d.llm ?? {}) as Details;
-  return [...list(d.affiliate_evidence), ...list(d.advisory_offer_evidence), ...list(llm.profit_claims), ...list(llm.risk_statements)];
+  return [
+    ...list(d.affiliate_evidence).map((text) => ({ label: "Link afiliacyjny", text, tone: "claim" as const })),
+    ...list(d.advisory_offer_evidence).map((text) => ({ label: "Oferta doradztwa", text, tone: "claim" as const })),
+    ...list(llm.profit_claims).map((text) => ({ label: "Obietnica zysku", text, tone: "claim" as const })),
+    ...list(llm.risk_statements).map((text) => ({ label: "Ostrzeżenie o ryzyku", text, tone: "warning" as const })),
+  ];
 }
 
-function Entities({ data }: { data: FindingDetail }) {
+function Metric({ label, value, note, soon }: { label: string; value: string; note?: string; soon?: boolean }) {
   return (
-    <section>
-      <h2 className="section__title">{pl["finding.entities"]}</h2>
-      {data.mentions.length === 0 ? (
-        <p className="empty">{pl["finding.entities.empty"]}</p>
-      ) : (
-        <ul className="facts">
-          {data.mentions.map((m) => (
-            <li key={`${m.entity_id}-${m.role}`}>
-              <strong>{m.entity_name}</strong>
-              <span className="facts__meta">
-                {m.role}, {m.authorized === null ? pl["finding.entity.unknown"] : m.authorized ? pl["finding.entity.authorized"] : pl["finding.entity.unauthorized"]}
+    <div className={`metric${soon ? " is-soon" : ""}`}>
+      <span className="micro">{label}</span>
+      <span className="metric__line">
+        <span className="metric__value">{value}</span>
+        {note && <span className="muted">{note}</span>}
+        {soon && <SoonTag />}
+      </span>
+    </div>
+  );
+}
+
+export function Metrics({ data }: { data: FindingDetail }) {
+  if (data.module !== "m2") return null;
+  const fonts = (data.details as Details).font_comparison as FontComparison | null | undefined;
+  const ratio =
+    fonts?.profit_px && fonts.risk_px ? `${(fonts.profit_px / fonts.risk_px).toFixed(1).replace(".", ",")}×` : "-";
+  return (
+    <div className="metrics">
+      <Metric
+        label="Rozmiar fontu: zysk vs ostrzeżenie"
+        value={ratio}
+        note={fonts?.profit_px ? `${fonts.profit_px} px : ${fonts.risk_px} px` : undefined}
+      />
+      <Metric label="Kontrast ostrzeżenia (WCAG)" value="-" soon />
+      <Metric label="Pozycja ostrzeżenia" value="-" soon />
+      <Metric label="Proporcja zysk : ryzyko" value="-" soon />
+    </div>
+  );
+}
+
+export function Criteria({ data }: { data: FindingDetail }) {
+  const d = data.details as Details;
+  const criteria = (d.criteria as Criterion[] | undefined) ?? [];
+  if (data.module !== "m2" || criteria.length === 0) return null;
+  const failed = criteria.filter((c) => c.applicable !== false && c.score < 0.5).length;
+  return (
+    <section className="panel">
+      <div className="panel__head">
+        <h2>Kryteria M2 i podstawa prawna</h2>
+        <span className={failed ? "text-critical" : "muted"}>
+          {failed} z {criteria.length} niespełnionych
+        </span>
+      </div>
+      <div className="table-head micro">
+        <span className="col-grow">Kryterium</span>
+        <span className="col-detector">Detektor</span>
+        <span className="col-basis">Podstawa prawna</span>
+        <span className="col-weight">Waga</span>
+        <span className="col-result">Wynik</span>
+      </div>
+      {criteria.map((c) => {
+        const na = c.applicable === false;
+        const ok = na || c.score >= 0.5;
+        return (
+          <div className="table-row" key={c.id}>
+            <span className="col-grow">
+              <p className="cell-id">{c.id}</p>
+              <p className="muted">{c.description}</p>
+            </span>
+            <span className="col-detector mono muted is-soon" title="Brak pola detector w API">
+              -
+            </span>
+            <span className="col-basis">{c.legal_basis}</span>
+            <span className="col-weight mono">{c.weight.toFixed(2).replace(".", ",")}</span>
+            <span className="col-result">
+              <span className={`verdict-pill ${na ? "verdict-pill--na" : ok ? "verdict-pill--ok" : "verdict-pill--fail"}`}>
+                {na ? pl["finding.m2.notApplicable"] : ok ? "Spełnione" : "Niespełnione"}
               </span>
-            </li>
-          ))}
-        </ul>
-      )}
+            </span>
+          </div>
+        );
+      })}
     </section>
   );
 }
 
-function M1({ data }: { data: FindingDetail }) {
+export function ModuleFacts({ data }: { data: FindingDetail }) {
   const d = data.details as Details;
-  const disclosed = Boolean(d.has_cooperation_disclosure);
-  const affiliate = list(d.affiliate_evidence);
-  return (
-    <>
-      <section>
-        <h2 className="section__title">{pl["finding.m1.title"]}</h2>
-        <dl className="facts facts--grid">
+  if (data.module === "m1") {
+    const disclosed = Boolean(d.has_cooperation_disclosure);
+    const affiliate = list(d.affiliate_evidence);
+    return (
+      <section className="panel">
+        <div className="panel__head">
+          <h2>{pl["finding.m1.title"]}</h2>
+        </div>
+        <dl className="facts">
           <dt>{pl["finding.m1.promo"]}</dt>
           <dd>{d.promo_code ? <code>{String(d.promo_code)}</code> : "-"}</dd>
           <dt>{pl["finding.m1.affiliate"]}</dt>
           <dd>{affiliate.length ? affiliate.map((a) => <code key={a}>{a}</code>) : "-"}</dd>
           <dt>{pl["finding.m1.disclosure"]}</dt>
-          <dd className={disclosed ? "" : "facts__bad"}>{disclosed ? pl["finding.m1.disclosed"] : pl["finding.m1.undisclosed"]}</dd>
+          <dd className={disclosed ? "" : "text-critical"}>{disclosed ? pl["finding.m1.disclosed"] : pl["finding.m1.undisclosed"]}</dd>
         </dl>
       </section>
-      <Entities data={data} />
-    </>
-  );
-}
-
-function M2({ data }: { data: FindingDetail }) {
-  const d = data.details as Details;
-  const criteria = (d.criteria as Criterion[] | undefined) ?? [];
-  const fonts = d.font_comparison as FontComparison | null | undefined;
-  return (
-    <>
-      {fonts && (
-        <section>
-          <h2 className="section__title">{pl["finding.m2.fonts"]}</h2>
-          <div className="fonts">
-            <div className="fonts__box">
-              <span className="fonts__label">{pl["finding.m2.profitFont"]}</span>
-              {fonts.profit_px ? (
-                <span className="fonts__sample" style={{ fontSize: Math.min(fonts.profit_px, 64) }}>
-                  {fonts.profit_text ?? "Zysk"} <small>{fonts.profit_px}px</small>
-                </span>
-              ) : (
-                <span className="empty">{pl["finding.m2.noProfit"]}</span>
-              )}
-            </div>
-            <div className="fonts__box">
-              <span className="fonts__label">{pl["finding.m2.riskFont"]}</span>
-              <span className="fonts__sample" style={{ fontSize: Math.min(fonts.risk_px, 64) }}>
-                {fonts.risk_text ?? "Ryzyko"} <small>{fonts.risk_px}px</small>
-              </span>
-            </div>
-          </div>
-          {fonts.ratio !== undefined && (
-            <p className={fonts.ratio < 0.8 ? "facts__bad" : ""}>
-              {pl["finding.m2.ratio"]}: {fonts.ratio}
-            </p>
-          )}
-        </section>
-      )}
-      <section>
-        <h2 className="section__title">{pl["finding.m2.title"]}</h2>
-        <ul className="criteria">
-          {criteria.map((c) => (
-            <li key={c.id} className={c.applicable === false || c.score >= 0.5 ? "criteria__ok" : "criteria__fail"}>
-              <span className="criteria__score">{c.applicable === false ? pl["finding.m2.notApplicable"] : `${Math.round(c.score * 100)}%`}</span>
-              <span className="criteria__body">
-                <strong>{c.description}</strong>
-                <span className="facts__meta">
-                  {pl["finding.m2.legalBasis"]}: {c.legal_basis}
-                </span>
-                {c.evidence && <code>{c.evidence}</code>}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </>
-  );
-}
-
-function M3({ data }: { data: FindingDetail }) {
-  const d = data.details as Details;
-  const offer = list(d.advisory_offer_evidence);
-  const lookalike = d.lookalike_domain as { suspected_domain: string; mimics_entity: string; mimics_domain: string; similarity: number } | null;
-  return (
-    <>
-      <section>
-        <h2 className="section__title">{pl["finding.m3.title"]}</h2>
-        <dl className="facts facts--grid">
+    );
+  }
+  if (data.module === "m3") {
+    const offer = list(d.advisory_offer_evidence);
+    const lookalike = d.lookalike_domain as {
+      suspected_domain: string;
+      mimics_entity: string;
+      mimics_domain: string;
+      similarity: number;
+    } | null;
+    return (
+      <section className="panel">
+        <div className="panel__head">
+          <h2>{pl["finding.m3.title"]}</h2>
+        </div>
+        <dl className="facts">
           <dt>{pl["finding.m3.offer"]}</dt>
           <dd>{offer.length ? offer.map((o) => <code key={o}>{o}</code>) : "-"}</dd>
           <dt>{pl["finding.m3.lookalike"]}</dt>
           <dd>
             {lookalike ? (
               <>
-                <code>{lookalike.suspected_domain}</code> {pl["finding.m3.mimics"]} {lookalike.mimics_entity} (<code>{lookalike.mimics_domain}</code>, {lookalike.similarity}%)
+                <code>{lookalike.suspected_domain}</code> {pl["finding.m3.mimics"]} {lookalike.mimics_entity} (
+                <code>{lookalike.mimics_domain}</code>, {lookalike.similarity}%)
               </>
             ) : (
               "-"
@@ -153,14 +171,51 @@ function M3({ data }: { data: FindingDetail }) {
           </dd>
         </dl>
       </section>
-      <Entities data={data} />
-    </>
+    );
+  }
+  return null;
+}
+
+export function Entities({ data }: { data: FindingDetail }) {
+  return (
+    <section className="panel">
+      <div className="panel__head">
+        <h2>Podmiot z rejestru</h2>
+      </div>
+      {data.mentions.length === 0 ? (
+        <p className="empty">{pl["finding.entities.empty"]}</p>
+      ) : (
+        data.mentions.map((m) => (
+          <div className="entity" key={`${m.entity_id}-${m.role}`}>
+            <div className="entity__head">
+              <strong>{m.entity_name}</strong>
+              {m.authorized === null ? (
+                <span className="tag tag--neutral">{pl["finding.entity.unknown"]}</span>
+              ) : m.authorized ? (
+                <span className="tag tag--ok">{pl["finding.entity.authorized"]}</span>
+              ) : (
+                <span className="tag tag--critical">{pl["finding.entity.unauthorized"]}</span>
+              )}
+            </div>
+            <dl className="kv">
+              <dt>Rola</dt>
+              <dd>{m.role ?? "-"}</dd>
+              {["NIP", "KRS", "Domeny", "Źródło"].map((label) => (
+                <FragmentRow key={label} label={label} />
+              ))}
+            </dl>
+          </div>
+        ))
+      )}
+    </section>
   );
 }
 
-export default function FindingFacts({ data }: { data: FindingDetail }) {
-  if (data.module === "m1") return <M1 data={data} />;
-  if (data.module === "m2") return <M2 data={data} />;
-  if (data.module === "m3") return <M3 data={data} />;
-  return null;
+function FragmentRow({ label }: { label: string }) {
+  return (
+    <>
+      <dt className="is-soon">{label}</dt>
+      <dd className="is-soon">-</dd>
+    </>
+  );
 }

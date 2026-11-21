@@ -26,7 +26,6 @@ body {
   font-family: var(--font);
   font-size: 16px;
   line-height: 1.5;
-  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -938,5 +937,90 @@ button {
   .ruler__fill,
   .stage--running .stage__dot {
     animation: none;
+  }
+}
+
+.score,
+.row__id,
+.row__meta,
+.verdict__score,
+.threshold__value,
+.metrics dd,
+.modules__count,
+.case__count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Loading and errors */
+
+.loading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+  color: var(--graphite);
+}
+
+.spinner {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 2.5px solid var(--rule);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.spinner--light {
+  border-color: rgba(246, 248, 248, 0.35);
+  border-top-color: var(--sheet);
+}
+
+.btn--busy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.btn--small {
+  padding: 0.25rem 0.8rem;
+  font-size: 0.9rem;
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.notice__text {
+  margin: 0;
+}
+
+.stage--error {
+  color: var(--stamp);
+  font-weight: 600;
+}
+
+.stage--error .stage__dot {
+  background: var(--stamp);
+  border-color: var(--stamp);
+}
+
+.stage__msg--error {
+  color: var(--stamp);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
   }
 }

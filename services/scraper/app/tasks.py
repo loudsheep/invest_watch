@@ -113,23 +113,31 @@ def scan_url_now(url: str, scan_id: str):
     from .collectors.open_web import OpenWebCollector
 
     db = SessionLocal()
+    stage = "fetch"
     try:
-        _publish_scan_stage(scan_id, "fetch", "running")
-        source = db.query(Source).filter(Source.name == "open-web").first()
-        collector = OpenWebCollector((source.config if source else {}) or {})
-        raw = collector.fetch(url)
-        if raw is None:
-            _publish_scan_stage(scan_id, "fetch", "error", "Could not fetch URL")
-            return
-        _publish_scan_stage(scan_id, "fetch", "done")
+        try:
+            _publish_scan_stage(scan_id, "fetch", "running")
+            source = db.query(Source).filter(Source.name == "open-web").first()
+            collector = OpenWebCollector((source.config if source else {}) or {})
+            raw = collector.fetch(url)
+            if raw is None:
+                _publish_scan_stage(scan_id, "fetch", "error", "Could not fetch URL")
+                return
+            _publish_scan_stage(scan_id, "fetch", "done")
 
-        _publish_scan_stage(scan_id, "preprocess", "running")
-        doc = _store_raw_document(db, source.id if source else 1, raw)
-        if doc is None:
-            _publish_scan_stage(scan_id, "preprocess", "done", "Duplicate of an existing document")
-            return
-        _publish_scan_stage(scan_id, "preprocess", "done")
+            stage = "preprocess"
+            _publish_scan_stage(scan_id, "preprocess", "running")
+            doc = _store_raw_document(db, source.id if source else 1, raw)
+            if doc is None:
+                _publish_scan_stage(scan_id, "preprocess", "done")
+                _publish_scan_stage(scan_id, "done", "done", "Ta strona była już skanowana, wynik jest w findingach")
+                return
+            _publish_scan_stage(scan_id, "preprocess", "done")
 
-        celery_app.send_task("ai_worker.tasks.process_document", args=[doc.id, scan_id])
+            celery_app.send_task("ai_worker.tasks.process_document", args=[doc.id, scan_id])
+        except Exception as exc:
+            logger.exception("scan_failed", scan_id=scan_id, stage=stage)
+            _publish_scan_stage(scan_id, stage, "error", str(exc)[:200])
+            raise
     finally:
         db.close()

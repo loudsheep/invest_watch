@@ -2,7 +2,9 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import pl from "../i18n/pl.json";
+import Loading from "../components/Loading";
 import ModuleTag from "../components/ModuleTag";
+import QueryError from "../components/QueryError";
 import Ruler from "../components/Ruler";
 import { api } from "../lib/api";
 import { HIGH_RISK, MODULES, STATUSES, formatDate, statusLabel } from "../lib/modules";
@@ -31,7 +33,7 @@ export default function Findings() {
   const [module, setModule] = useState("");
   const [status, setStatus] = useState("");
 
-  const { data, isError, isSuccess } = useQuery({
+  const { data, isError, isSuccess, isPending, refetch } = useQuery({
     queryKey: ["findings", module, status],
     queryFn: () => api.listFindings({ module: module || undefined, status: status || undefined }),
   });
@@ -55,7 +57,8 @@ export default function Findings() {
         />
       </div>
 
-      {isError && <p className="notice">{pl["common.error"]}</p>}
+      {isPending && <Loading />}
+      {isError && <QueryError onRetry={() => refetch()} />}
       {isSuccess && data.length === 0 && <p className="empty">{pl["findings.empty"]}</p>}
 
       <ul className="rows">

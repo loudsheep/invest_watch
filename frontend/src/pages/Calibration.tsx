@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import pl from "../i18n/pl.json";
+import Loading from "../components/Loading";
+import QueryError from "../components/QueryError";
 import { api } from "../lib/api";
 import { MODULES, moduleInfo } from "../lib/modules";
 
@@ -10,7 +12,7 @@ export default function Calibration() {
   const [draft, setDraft] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
-  const { data, isError } = useQuery({
+  const { data, isError, isPending, refetch } = useQuery({
     queryKey: ["calibration", module],
     queryFn: () => api.getCalibration(module),
   });
@@ -50,7 +52,10 @@ export default function Calibration() {
         ))}
       </div>
 
-      {isError && <p className="notice">{pl["common.error"]}</p>}
+      {isPending && <Loading />}
+      {isError && <QueryError onRetry={() => refetch()} />}
+      {setThreshold.isError && <QueryError message="Nie udało się zapisać progu." onRetry={() => draft !== null && setThreshold.mutate(draft)} />}
+      {retrain.isError && <QueryError message="Nie udało się uruchomić trenowania." onRetry={() => retrain.mutate()} />}
 
       {data && (
         <div className="split split--calibration">
@@ -93,7 +98,7 @@ export default function Calibration() {
             </dl>
 
             <button className="btn btn--ghost" disabled={retrain.isPending} onClick={() => retrain.mutate()}>
-              {pl["calibration.retrain"]}
+              {retrain.isPending ? `${pl["calibration.retrain"]}...` : pl["calibration.retrain"]}
             </button>
             {retrain.isSuccess && (
               <p className="saved" role="status">

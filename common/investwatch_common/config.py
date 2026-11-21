@@ -10,6 +10,7 @@ class Settings:
     s3_secret_key: str = os.getenv(
         "S3_SECRET_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     )
+    s3_region: str = os.getenv("S3_REGION", "auto")
     s3_bucket: str = os.getenv("S3_BUCKET", "investwatch-evidence")
     # Any OpenAI-compatible endpoint: OpenRouter, or Ollama via its /v1 API.
     llm_base_url: str = os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1")

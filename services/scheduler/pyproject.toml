@@ -5,6 +5,7 @@ requires-python = ">=3.12"
 dependencies = [
     "investwatch-common",
     "celery>=5.4",
+    "packaging>=23.0",
     "pyyaml>=6.0",
 ]
 

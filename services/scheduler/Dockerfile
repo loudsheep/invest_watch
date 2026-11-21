@@ -10,4 +10,4 @@ COPY services/scheduler /app/services/scheduler
 WORKDIR /app/services/scheduler
 RUN uv pip install --system --no-cache -e . -e ../../common
 
-CMD ["celery", "-A", "app.celery_app", "beat", "--loglevel=info"]
+CMD ["celery", "-A", "app.celery_app", "worker", "--beat", "--loglevel=info"]

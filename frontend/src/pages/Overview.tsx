@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import pl from "../i18n/pl.json";
+import Loading from "../components/Loading";
 import ModuleTag from "../components/ModuleTag";
+import QueryError from "../components/QueryError";
 import Ruler from "../components/Ruler";
 import { api } from "../lib/api";
 import { HIGH_RISK, MODULES, formatDate } from "../lib/modules";
@@ -35,8 +37,6 @@ export default function Overview() {
   return (
     <>
       <h1 className="page__title">{queue.isSuccess ? headline(waiting.length, highWaiting) : pl["overview.title"]}</h1>
-      {queue.isError && <p className="notice">{pl["common.error"]}</p>}
-
       <div className="split">
         <section>
           <div className="section__head">
@@ -45,7 +45,11 @@ export default function Overview() {
               {pl["overview.queueAll"]}
             </Link>
           </div>
-          {queue.isSuccess && waiting.length === 0 ? (
+          {queue.isPending ? (
+            <Loading />
+          ) : queue.isError ? (
+            <QueryError onRetry={() => queue.refetch()} />
+          ) : waiting.length === 0 ? (
             <p className="empty">
               {pl["overview.queueEmpty"]} <Link to="/scan">{pl["nav.scan"]}</Link>
             </p>
@@ -67,7 +71,11 @@ export default function Overview() {
 
         <section>
           <h2 className="section__title">{pl["overview.trend"]}</h2>
-          {chartData.length === 0 ? (
+          {trend.isPending ? (
+            <Loading />
+          ) : trend.isError ? (
+            <QueryError onRetry={() => trend.refetch()} />
+          ) : chartData.length === 0 ? (
             <p className="empty">{pl["overview.trendEmpty"]}</p>
           ) : (
             <div className="chart">

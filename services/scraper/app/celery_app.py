@@ -1,4 +1,5 @@
 from celery import Celery
+from investwatch_common.celery_routes import TASK_ROUTES
 from investwatch_common.config import settings
 from investwatch_common.logging import configure_logging
 
@@ -10,7 +11,7 @@ celery_app = Celery(
     backend=settings.redis_url,
     include=["app.tasks"],
 )
-celery_app.conf.task_routes = {"scraper_worker.tasks.*": {"queue": "scraping"}}
+celery_app.conf.task_routes = TASK_ROUTES
 
 from celery.signals import worker_ready  # noqa: E402
 

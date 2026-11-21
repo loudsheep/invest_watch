@@ -1,7 +1,9 @@
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import pl from "../i18n/pl.json";
+import Loading from "../components/Loading";
 import ModuleTag from "../components/ModuleTag";
+import QueryError from "../components/QueryError";
 import Ruler from "../components/Ruler";
 import { API_URL, api } from "../lib/api";
 import { HIGH_RISK, STATUSES, formatDate, moduleInfo, statusLabel } from "../lib/modules";
@@ -17,7 +19,7 @@ export default function FindingDetail() {
   const { id } = useParams();
   const queryClient = useQueryClient();
 
-  const { data, isError } = useQuery({
+  const { data, isError, refetch } = useQuery({
     queryKey: ["finding", id],
     queryFn: () => api.getFinding(Number(id)),
     enabled: !!id,
@@ -32,8 +34,8 @@ export default function FindingDetail() {
     },
   });
 
-  if (isError) return <p className="notice">{pl["common.error"]}</p>;
-  if (!data) return <p className="boot">{pl["common.loading"]}</p>;
+  if (isError) return <QueryError onRetry={() => refetch()} />;
+  if (!data) return <Loading />;
 
   const screenshot = data.screenshot_url
     ? data.screenshot_url.startsWith("http")
@@ -122,7 +124,7 @@ export default function FindingDetail() {
               {pl["finding.saved"]}
             </p>
           )}
-          {mutation.isError && <p className="notice">{pl["common.error"]}</p>}
+          {mutation.isError && <QueryError onRetry={() => mutation.mutate(mutation.variables ?? "in_review")} />}
         </aside>
       </div>
     </>

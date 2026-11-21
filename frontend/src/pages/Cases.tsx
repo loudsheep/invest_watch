@@ -2,7 +2,9 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import pl from "../i18n/pl.json";
+import Loading from "../components/Loading";
 import ModuleTag from "../components/ModuleTag";
+import QueryError from "../components/QueryError";
 import Ruler from "../components/Ruler";
 import { api, type CaseRow } from "../lib/api";
 import { formatDate } from "../lib/modules";
@@ -27,6 +29,8 @@ function CaseItem({ item }: { item: CaseRow }) {
       {open && (
         <div className="case__body">
           <h3 className="section__title">{pl["cases.findings"]}</h3>
+          {detail.isPending && <Loading />}
+          {detail.isError && <QueryError onRetry={() => detail.refetch()} />}
           <ul className="rows">
             {(detail.data?.findings ?? []).map((f) => (
               <li key={f.id}>
@@ -46,12 +50,13 @@ function CaseItem({ item }: { item: CaseRow }) {
 }
 
 export default function Cases() {
-  const { data, isError, isSuccess } = useQuery({ queryKey: ["cases"], queryFn: api.listCases });
+  const { data, isError, isSuccess, isPending, refetch } = useQuery({ queryKey: ["cases"], queryFn: api.listCases });
 
   return (
     <>
       <h1 className="page__title">{pl["cases.title"]}</h1>
-      {isError && <p className="notice">{pl["common.error"]}</p>}
+      {isPending && <Loading />}
+      {isError && <QueryError onRetry={() => refetch()} />}
       {isSuccess && data.length === 0 && <p className="empty">{pl["cases.empty"]}</p>}
       <ul className="rows">
         {(data ?? []).map((c) => (

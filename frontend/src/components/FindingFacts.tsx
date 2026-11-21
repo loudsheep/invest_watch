@@ -91,7 +91,7 @@ export function Criteria({ data }: { data: FindingDetail }) {
   return (
     <section className="panel">
       <div className="panel__head">
-        <h2>Kryteria M2 i podstawa prawna</h2>
+        <h2>Kryteria zgodności i podstawa prawna</h2>
         <span className={failed ? "text-critical" : "muted"}>
           {failed} z {applicable.length} niespełnionych
         </span>
@@ -185,8 +185,12 @@ export function ModuleFacts({ data }: { data: FindingDetail }) {
               "-"
             )}
           </dd>
-          <dt>Wiek domeny (RDAP)</dt>
-          <dd>{typeof d.domain_age_days === "number" ? `${d.domain_age_days} dni` : "-"}</dd>
+          <dt>Wiek domeny</dt>
+          <dd>
+            {typeof d.domain_age_days === "number"
+              ? `${d.domain_age_days} dni (${(d.domain_age_days / 365).toFixed(1).replace(".", ",")} roku)`
+              : "brak danych (domena lokalna albo rejestr nie podaje daty rejestracji)"}
+          </dd>
         </dl>
       </section>
     );

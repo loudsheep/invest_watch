@@ -105,9 +105,9 @@ export default function Settings() {
             </div>
             <div className="table-row">
               <span className="col-grow">
-                <p className="cell-id">M3: pomijaj strony autoryzowanych firm</p>
+                <p className="cell-id">Doradztwo bez zezwolenia: pomijaj strony autoryzowanych firm</p>
                 <p className="muted">
-                  Strona na zarejestrowanej domenie firmy z rejestru nie tworzy findingu M3. Lookalike domeny są nadal zgłaszane.
+                  Strona na zarejestrowanej domenie firmy z rejestru nie tworzy findingu tego typu. Lookalike domeny są nadal zgłaszane.
                 </p>
               </span>
               <label className="col-health">

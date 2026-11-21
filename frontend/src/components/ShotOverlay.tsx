@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 interface Rect {
   x: number;
@@ -9,61 +10,113 @@ interface Rect {
 
 interface StyledElement {
   fontSize?: string;
+  text?: string;
   rect?: Rect;
+}
+
+export interface Quote {
+  label: string;
+  text: string;
+  tone: "claim" | "warning";
 }
 
 interface Props {
   src: string;
   styles: Record<string, unknown> | null;
+  quotes?: Quote[];
+  preview?: { maxHeight: number; fullHref: string };
 }
 
-function boxes(styles: Record<string, unknown> | null, key: string): StyledElement[] {
+const MIN_BLOCK_LENGTH = 12;
+
+function elements(styles: Record<string, unknown> | null, key: string): StyledElement[] {
   const list = styles?.[key];
   return Array.isArray(list) ? (list as StyledElement[]).filter((el) => el.rect && el.rect.w > 0 && el.rect.h > 0) : [];
 }
 
-function Marked({ el, scale, tone }: { el: StyledElement; scale: number; tone: "risk" | "profit" }) {
-  const rect = el.rect as Rect;
+const normalize = (text: string) => text.toLowerCase().replace(/\s+/g, " ").trim();
+
+/** Page text blocks that contain a quote (or are contained in it, for quotes spanning several blocks). */
+function blocksFor(quote: Quote, blocks: StyledElement[]): StyledElement[] {
+  const wanted = normalize(quote.text);
+  if (wanted.length < MIN_BLOCK_LENGTH) return [];
+  return blocks.filter((block) => {
+    const text = normalize(block.text ?? "");
+    return text.length >= MIN_BLOCK_LENGTH && (text.includes(wanted) || wanted.includes(text));
+  });
+}
+
+function Marked({ rect, scale, className, label }: { rect: Rect; scale: number; className: string; label: string }) {
   return (
     <span
-      className={`shot-box shot-box--${tone}`}
+      className={`shot-box ${className}`}
       style={{ left: rect.x * scale, top: rect.y * scale, width: rect.w * scale, height: rect.h * scale }}
     >
-      <span className="shot-box__label">{tone === "risk" ? "ryzyko" : "zysk"} {el.fontSize}</span>
+      <span className="shot-box__label">{label}</span>
     </span>
   );
 }
 
-export default function ShotOverlay({ src, styles }: Props) {
-  const [scale, setScale] = useState(0);
+export default function ShotOverlay({ src, styles, quotes = [], preview }: Props) {
+  const [size, setSize] = useState({ scale: 0, height: 0 });
   const [enabled, setEnabled] = useState(true);
-  const risk = boxes(styles, "risk_warning_elements");
-  const profit = boxes(styles, "profit_claim_elements");
-  const canMark = risk.length + profit.length > 0;
+  const risk = elements(styles, "risk_warning_elements");
+  const profit = elements(styles, "profit_claim_elements");
+  const blocks = elements(styles, "text_blocks");
+  const quoted = quotes.flatMap((quote) => blocksFor(quote, blocks).map((block) => ({ quote, block })));
+  const canMark = risk.length + profit.length + quoted.length > 0;
+
+  const firstY = Math.min(...[...risk, ...profit, ...quoted.map((q) => q.block)].map((el) => (el.rect as Rect).y), Infinity);
+  const cropped = preview !== undefined && size.height > preview.maxHeight;
+  const offset = cropped && Number.isFinite(firstY) ? Math.min(Math.max(0, firstY * size.scale - 70), size.height - preview.maxHeight) : 0;
 
   return (
     <div>
       {canMark && (
-        <label className="shot-toggle">
-          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> Porównanie czcionek na zrzucie
-        </label>
+        <div className="shot-controls">
+          <label className="shot-toggle">
+            <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> Zaznacz na zrzucie
+          </label>
+          {enabled && (
+            <span className="shot-legend">
+              {profit.length > 0 && <span className="shot-legend__item shot-legend__item--profit">zysk (czcionka)</span>}
+              {risk.length > 0 && <span className="shot-legend__item shot-legend__item--risk">ryzyko (czcionka)</span>}
+              {quoted.some((q) => q.quote.tone === "claim") && <span className="shot-legend__item shot-legend__item--claim">cytat: obietnica / oferta</span>}
+              {quoted.some((q) => q.quote.tone === "warning") && <span className="shot-legend__item shot-legend__item--warning">cytat: ostrzeżenie</span>}
+            </span>
+          )}
+        </div>
       )}
-      <div className="shot-wrap">
-        <img
-          className="shot"
-          src={src}
-          alt="Zrzut ekranu zapisany jako dowód"
-          onLoad={(e) => setScale(e.currentTarget.clientWidth / e.currentTarget.naturalWidth)}
-        />
-        {enabled && scale > 0 && (
-          <>
-            {profit.map((el, i) => (
-              <Marked key={`p${i}`} el={el} scale={scale} tone="profit" />
-            ))}
-            {risk.map((el, i) => (
-              <Marked key={`r${i}`} el={el} scale={scale} tone="risk" />
-            ))}
-          </>
+      <div className="shot-frame" style={cropped ? { maxHeight: preview.maxHeight } : undefined}>
+        <div className="shot-wrap" style={{ marginTop: -offset }}>
+          <img
+            className="shot"
+            src={src}
+            alt="Zrzut ekranu zapisany jako dowód"
+            onLoad={(e) =>
+              setSize({ scale: e.currentTarget.clientWidth / e.currentTarget.naturalWidth, height: e.currentTarget.clientHeight })
+            }
+          />
+          {enabled && size.scale > 0 && (
+            <>
+              {profit.map((el, i) => (
+                <Marked key={`p${i}`} rect={el.rect as Rect} scale={size.scale} className="shot-box--profit" label={`zysk ${el.fontSize}`} />
+              ))}
+              {risk.map((el, i) => (
+                <Marked key={`r${i}`} rect={el.rect as Rect} scale={size.scale} className="shot-box--risk" label={`ryzyko ${el.fontSize}`} />
+              ))}
+              {quoted.map(({ quote, block }, i) => (
+                <Marked key={`q${i}`} rect={block.rect as Rect} scale={size.scale} className={`shot-box--${quote.tone}`} label={quote.label} />
+              ))}
+            </>
+          )}
+        </div>
+        {cropped && (
+          <div className="shot-fade">
+            <Link className="btn btn--secondary" to={preview.fullHref}>
+              Pokaż cały zrzut
+            </Link>
+          </div>
         )}
       </div>
     </div>

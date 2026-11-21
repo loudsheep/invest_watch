@@ -14,9 +14,9 @@ export interface ModuleInfo {
 }
 
 export const MODULES: ModuleInfo[] = [
-  { id: "m1", short: "M1", name: "Finfluencerzy", color: "#0e1424" },
-  { id: "m2", short: "M2", name: "Informacja o ryzyku", color: "#2340d8" },
-  { id: "m3", short: "M3", name: "Shadow advisory", color: "#6f86e8" },
+  { id: "m1", short: "Finfluencer", name: "Reklamy finfluencerów", color: "#0e1424" },
+  { id: "m2", short: "Ryzyko", name: "Zgodność informacji o ryzyku", color: "#2340d8" },
+  { id: "m3", short: "Bez licencji", name: "Doradztwo bez zezwolenia", color: "#6f86e8" },
 ];
 
 export const STATUSES = ["new", "in_review", "confirmed", "dismissed", "escalated"] as const;

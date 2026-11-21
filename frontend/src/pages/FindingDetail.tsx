@@ -8,7 +8,7 @@ import ModuleBadge from "../components/ModuleBadge";
 import ShotOverlay from "../components/ShotOverlay";
 import QueryError from "../components/QueryError";
 import StatusBadge from "../components/StatusBadge";
-import { API_URL, api } from "../lib/api";
+import { API_URL, api, type FindingDetail as FindingDetailData } from "../lib/api";
 import { HIGH_RISK, formatDate, moduleInfo, riskBand } from "../lib/modules";
 
 const BAND_LABEL = { low: "Niskie", medium: "Średnie", high: "Wysokie", critical: "Krytyczne" } as const;
@@ -80,7 +80,12 @@ export default function FindingDetail() {
             </div>
             {screenshot ? (
               <div className="panel__body">
-                <ShotOverlay src={screenshot} styles={data.computed_styles} />
+                <ShotOverlay
+                  src={screenshot}
+                  styles={data.computed_styles}
+                  quotes={quotes}
+                  preview={{ maxHeight: 460, fullHref: `/findings/${data.id}/screenshot` }}
+                />
               </div>
             ) : (
               <p className="empty">Brak zrzutu ekranu dla tego findingu.</p>
@@ -88,6 +93,7 @@ export default function FindingDetail() {
             <Metrics data={data} />
           </section>
 
+          <Translation data={data} />
           <Criteria data={data} />
           <ModuleFacts data={data} />
 
@@ -232,6 +238,33 @@ function Similar({ findingId }: { findingId: number }) {
             </span>
           </p>
         ))}
+      </div>
+    </section>
+  );
+}
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "angielski", de: "niemiecki", fr: "francuski", es: "hiszpański", it: "włoski", ru: "rosyjski", uk: "ukraiński",
+  cs: "czeski", sk: "słowacki", pt: "portugalski", nl: "niderlandzki", tr: "turecki", ar: "arabski",
+};
+
+function Translation({ data }: { data: FindingDetailData }) {
+  const translation = (data.details as Record<string, unknown>).translation as
+    | { language: string; text_pl: string; model: string }
+    | undefined;
+  if (!translation) return null;
+  return (
+    <section className="panel">
+      <div className="panel__head">
+        <h2>Tłumaczenie na polski</h2>
+        <span className="tag">tłumaczenie maszynowe</span>
+      </div>
+      <div className="panel__body">
+        <p className="muted">
+          Język oryginału: {LANGUAGE_NAMES[translation.language] ?? translation.language}. Tłumaczenie wykonał model{" "}
+          <code>{translation.model}</code>, a reguły i kryteria zastosowano do tekstu po tłumaczeniu. Cytaty w findingu pozostają w oryginale.
+        </p>
+        <p className="prose translation">{translation.text_pl}</p>
       </div>
     </section>
   );

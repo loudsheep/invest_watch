@@ -1,5 +1,14 @@
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:47800";
 
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -10,7 +19,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     },
   });
   if (!response.ok) {
-    throw new Error(`${response.status} ${response.statusText}`);
+    throw new ApiError(response.status, `${response.status} ${response.statusText}`);
   }
   if (response.status === 204) {
     return undefined as T;
@@ -83,6 +92,7 @@ export interface GraphNode {
   id: string;
   label: string;
   type: "advertiser" | "entity" | "document" | "promo_code" | "domain";
+  finding_id?: number;
 }
 
 export interface CaseGraph {

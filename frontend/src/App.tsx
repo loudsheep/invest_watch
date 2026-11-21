@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import pl from "./i18n/pl.json";
-import { api } from "./lib/api";
+import QueryError from "./components/QueryError";
+import { ApiError, api } from "./lib/api";
 import { socket } from "./lib/socket";
 import AlertsPanel, { useHighRiskAlerts } from "./components/AlertsPanel";
 import ModuleBadge from "./components/ModuleBadge";
@@ -13,6 +14,7 @@ import FindingDetail from "./pages/FindingDetail";
 import Calibration from "./pages/Calibration";
 import Cases from "./pages/Cases";
 import SystemHealth from "./pages/SystemHealth";
+import FindingScreenshot from "./pages/FindingScreenshot";
 import Settings from "./pages/Settings";
 import ScanNow from "./pages/ScanNow";
 import Login from "./pages/Login";
@@ -50,7 +52,12 @@ export default function App() {
   const unreadCount = (alerts.data ?? []).filter((f) => !readIds.has(f.id)).length;
   const markRead = (ids: number[]) => setReadIds((prev) => new Set([...prev, ...ids]));
 
-  const me = useQuery({ queryKey: ["me"], queryFn: api.me, retry: false, staleTime: Infinity });
+  const me = useQuery({
+    queryKey: ["me"],
+    queryFn: api.me,
+    retry: (count, error) => !(error instanceof ApiError && error.status === 401) && count < 3,
+    staleTime: Infinity,
+  });
 
   useEffect(() => {
     function onHighRisk(payload: HighRiskAlert) {
@@ -80,8 +87,11 @@ export default function App() {
   if (me.isPending) {
     return <p className="boot">{pl["common.loading"]}</p>;
   }
-  if (me.isError) {
+  if (me.error instanceof ApiError && me.error.status === 401) {
     return <Login />;
+  }
+  if (!me.data) {
+    return <QueryError onRetry={() => me.refetch()} />;
   }
 
   const initials = me.data.username.slice(0, 2).toUpperCase();
@@ -142,6 +152,7 @@ export default function App() {
           <Route path="/" element={<Overview />} />
           <Route path="/findings" element={<Findings />} />
           <Route path="/findings/:id" element={<FindingDetail />} />
+          <Route path="/findings/:id/screenshot" element={<FindingScreenshot />} />
           <Route path="/cases" element={<Cases />} />
           <Route path="/calibration" element={<Calibration />} />
           <Route path="/scan" element={<ScanNow />} />

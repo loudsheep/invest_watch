@@ -3,7 +3,7 @@ import { moduleInfo } from "../lib/modules";
 export default function ModuleBadge({ module }: { module: string }) {
   const info = moduleInfo(module);
   return (
-    <span className="module-badge" title={info.name}>
+    <span className="module-badge" title={`${info.id.toUpperCase()} · ${info.name}`}>
       <svg width="11" height="10" viewBox="0 0 11 10" aria-hidden="true">
         {info.id === "m1" && <circle cx="5" cy="5" r="5" fill={info.color} />}
         {info.id === "m2" && <rect x="1" y="1" width="9" height="9" rx="1" fill={info.color} />}

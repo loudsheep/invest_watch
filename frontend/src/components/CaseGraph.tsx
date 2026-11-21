@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import pl from "../i18n/pl.json";
 import { api, type GraphNode } from "../lib/api";
@@ -25,6 +26,7 @@ function truncate(text: string, max: number) {
 
 export default function CaseGraph({ caseId }: { caseId: number }) {
   const [active, setActive] = useState<string | null>(null);
+  const navigate = useNavigate();
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ["case-graph", caseId],
     queryFn: () => api.getCaseGraph(caseId),
@@ -64,6 +66,9 @@ export default function CaseGraph({ caseId }: { caseId: number }) {
     nodes.forEach((n, row) => position.set(n.id, { x: col * (NODE_W + COL_GAP), y: TOP + offset + row * (NODE_H + ROW_GAP) }));
   });
 
+  const open = (node: GraphNode) =>
+    navigate(node.type === "document" && node.finding_id ? `/findings/${node.finding_id}` : `/findings?q=${encodeURIComponent(node.label)}`);
+
   const connected = (id: string) => active === null || id === active || neighbours.get(active)?.has(id);
   const types = [...new Set(data.nodes.map((n) => n.type))];
 
@@ -76,7 +81,7 @@ export default function CaseGraph({ caseId }: { caseId: number }) {
             {labels[`graph.${type}`]}
           </li>
         ))}
-        <li className="graph__hint">Najedź na element, aby zobaczyć jego powiązania</li>
+        <li className="graph__hint">Najedź, aby zobaczyć powiązania. Kliknij, aby otworzyć finding lub wyszukać wszystkie treści z tym elementem</li>
       </ul>
       <svg viewBox={`0 0 ${width} ${height}`} width="100%" role="img" aria-label={pl["cases.graph"]}>
         {COLUMNS.map((col, i) => (
@@ -113,6 +118,12 @@ export default function CaseGraph({ caseId }: { caseId: number }) {
               className={`graph__item${connected(n.id) ? "" : " graph__item--dim"}`}
               onMouseEnter={() => setActive(n.id)}
               onMouseLeave={() => setActive(null)}
+              onFocus={() => setActive(n.id)}
+              onBlur={() => setActive(null)}
+              onClick={() => open(n)}
+              onKeyDown={(e) => e.key === "Enter" && open(n)}
+              tabIndex={0}
+              role="link"
             >
               <title>{n.label}</title>
               <rect x={p.x} y={p.y} width={NODE_W} height={NODE_H} rx={n.type === "advertiser" ? NODE_H / 2 : 4} className={`graph__node graph__node--${n.type}`} />

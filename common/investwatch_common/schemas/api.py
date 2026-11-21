@@ -1,8 +1,9 @@
 """Request/response schemas for the api service."""
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class UserOut(BaseModel):
@@ -104,6 +105,15 @@ class CalibrationMetrics(BaseModel):
 
 class ScanRequest(BaseModel):
     url: str
+
+    @field_validator("url")
+    @classmethod
+    def http_url_only(cls, value: str) -> str:
+        value = value.strip()
+        parsed = urlparse(value)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            raise ValueError("only http(s) URLs can be scanned")
+        return value
 
 
 class PipelineStageEvent(BaseModel):

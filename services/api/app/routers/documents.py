@@ -45,7 +45,15 @@ def get_html(
 
     record(db, user.id, "evidence_access", "document", doc.id, {"key": doc.minio_html_key})
     data = get_object(doc.minio_html_key)
-    return StreamingResponse(io.BytesIO(data), media_type="text/html")
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type="text/html",
+        headers={
+            "Content-Disposition": f'attachment; filename="document-{doc.id}.html"',
+            "Content-Security-Policy": "sandbox",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 def _document(db: Session, document_id: int) -> Document:

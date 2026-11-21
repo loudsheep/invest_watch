@@ -2259,3 +2259,13 @@ textarea.input {
   overflow-y: auto;
   white-space: pre-line;
 }
+
+.shot-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.text-ok {
+  color: #15803d;
+}

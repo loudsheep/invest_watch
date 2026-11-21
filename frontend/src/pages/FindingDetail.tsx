@@ -5,7 +5,7 @@ import pl from "../i18n/pl.json";
 import Loading from "../components/Loading";
 import { Criteria, Entities, Metrics, ModuleFacts, quotesFor } from "../components/FindingFacts";
 import ModuleBadge from "../components/ModuleBadge";
-import ShotOverlay from "../components/ShotOverlay";
+import ScreenshotViewer from "../components/ScreenshotViewer";
 import QueryError from "../components/QueryError";
 import StatusBadge from "../components/StatusBadge";
 import { API_URL, api, type FindingDetail as FindingDetailData } from "../lib/api";
@@ -80,9 +80,8 @@ export default function FindingDetail() {
             </div>
             {screenshot ? (
               <div className="panel__body">
-                <ShotOverlay
-                  src={screenshot}
-                  styles={data.computed_styles}
+                <ScreenshotViewer
+                  finding={data}
                   quotes={quotes}
                   preview={{ maxHeight: 460, fullHref: `/findings/${data.id}/screenshot` }}
                 />
@@ -198,9 +197,16 @@ function Custody({ documentId }: { documentId: number }) {
     queryKey: ["evidence", documentId],
     queryFn: () => api.getEvidenceManifest(documentId),
   });
-  const entries: [string, string][] = data
-    ? [["Treść (content_hash)", data.content_hash], ...Object.entries(data.files).map(([name, meta]) => [name, meta.sha256] as [string, string])]
+  const custody = data?.custody;
+  const entries: [string, string, string | null][] = data
+    ? [
+        ["Treść (content_hash)", data.content_hash, null],
+        ...Object.entries(data.files).map(
+          ([name, meta]) => [name, meta.sha256, custody?.files[name]?.status ?? null] as [string, string, string | null],
+        ),
+      ]
     : [];
+  const STATUS_LABEL: Record<string, string> = { ok: "zgodny z zapisem", modified: "ZMIENIONY", missing: "brak pliku" };
   return (
     <section className="panel">
       <div className="panel__head">
@@ -209,12 +215,30 @@ function Custody({ documentId }: { documentId: number }) {
       </div>
       <div className="panel__body custody">
         {isError && <p className="empty">Nie udało się odczytać dowodów.</p>}
-        {entries.map(([label, hash]) => (
+        {custody ? (
+          <p className={custody.verified ? "text-ok" : "text-critical"}>
+            {custody.verified
+              ? `Integralność zweryfikowana: pliki niezmienione od zapisu (${formatDate(custody.captured_at)}).`
+              : "Integralność naruszona: co najmniej jeden plik różni się od zapisu."}
+          </p>
+        ) : (
+          data && <p className="muted">Dokument sprzed wprowadzenia zapisu integralności.</p>
+        )}
+        {entries.map(([label, hash, status]) => (
           <div key={label}>
-            <p className="custody__label">{label}</p>
+            <p className="custody__label">
+              {label}
+              {status && <span className={status === "ok" ? " text-ok" : " text-critical"}> · {STATUS_LABEL[status]}</span>}
+            </p>
             <p className="cell-sub mono">SHA-256 {hash}</p>
           </div>
         ))}
+        {custody && (
+          <div>
+            <p className="custody__label">Manifest (pieczęć)</p>
+            <p className="cell-sub mono">SHA-256 {custody.manifest_sha256}</p>
+          </div>
+        )}
       </div>
     </section>
   );

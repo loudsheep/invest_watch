@@ -38,6 +38,15 @@ Wszystkie zmienne w `.env` (skopiowane z `.env.example`). Kluczowe:
 
 Reguły M2 (informacja o ryzyku): `config/m2_rules.yaml`. Taksonomie i zapytania discovery: `config/taxonomies.yaml`. Harmonogram kolektorów: `config/sources.yaml`.
 
+## Testy
+
+```bash
+cd frontend && npm test                                   # testy jednostkowe (vitest)
+cd frontend && npx playwright install chromium && npm run test:e2e   # E2E na działającym stosie (docker compose up)
+```
+
+E2E loguje się kontem `admin`, skanuje stronę demo i sprawdza, że konsola przeglądarki pozostaje czysta. Testy Pythona: `pytest services/<serwis>/tests`.
+
 ## Struktura repozytorium
 
 Patrz ADR-0013 oraz `docs/CONCEPT.md` sekcja 13.

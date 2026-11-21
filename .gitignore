@@ -20,3 +20,6 @@ data/dataset/
 docs/additional_materials
 
 *.tsbuildinfo
+
+frontend/test-results/
+frontend/playwright-report/

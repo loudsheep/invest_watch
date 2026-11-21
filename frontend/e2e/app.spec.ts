@@ -1,0 +1,82 @@
+import { expect, test, type Page } from "@playwright/test";
+
+const nav = (page: Page, name: string) => page.locator("nav").getByRole("link", { name, exact: true });
+
+const CREDENTIALS = { username: "admin", password: "changeme-dev" };
+
+async function login(page: Page) {
+  await page.goto("/");
+  await page.getByRole("textbox").first().fill(CREDENTIALS.username);
+  await page.locator('input[type="password"]').fill(CREDENTIALS.password);
+  await page.locator("form").getByRole("button").click();
+  await expect(nav(page, "Findingi")).toBeVisible();
+}
+
+const consoleProblems: string[] = [];
+
+test.beforeEach(({ page }) => {
+  consoleProblems.length = 0;
+  page.on("console", (message) => {
+    if (["error", "warning"].includes(message.type())) consoleProblems.push(message.text());
+  });
+});
+
+test.afterEach(({}, testInfo) => {
+  // A wrong password is answered with 401, which the browser logs by design.
+  if (!testInfo.title.includes("rejects")) expect(consoleProblems).toEqual([]);
+});
+
+test("login rejects a wrong password and accepts the right one", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("textbox").first().fill(CREDENTIALS.username);
+  await page.locator('input[type="password"]').fill("wrong");
+  await page.locator("form").getByRole("button").click();
+  await expect(nav(page, "Findingi")).toHaveCount(0);
+  await login(page);
+});
+
+test("scan of a demo page streams pipeline stages and ends with a result", async ({ page }) => {
+  await login(page);
+  await nav(page, "Skanuj URL").click();
+  await page.getByRole("textbox").first().fill("http://demo-sites:8080/landing-aurum-cfd");
+  await page.getByRole("button", { name: /skanuj/i }).click();
+  await expect(page.getByRole("status").filter({ hasText: /Utworzono findingi|już skanowana|Brak findingów/ })).toBeVisible({ timeout: 90_000 });
+});
+
+test("finding detail shows criteria, evidence integrity and the screenshot", async ({ page }) => {
+  await login(page);
+  await nav(page, "Findingi").click();
+  await page.getByPlaceholder(/Szukaj/).fill("Aurum Capital - CFD");
+  await page.locator(`main a[href^="/findings/"]`).first().click();
+  await expect(page.getByRole("heading", { name: /Kryteria zgodności/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Łańcuch dowodowy" })).toBeVisible();
+  await expect(page.getByAltText("Zrzut ekranu zapisany jako dowód")).toBeVisible();
+});
+
+test("an analyst decision changes the finding status", async ({ page }) => {
+  await login(page);
+  await nav(page, "Findingi").click();
+  await page.locator(`main a[href^="/findings/"]`).first().click();
+  await page.getByRole("button", { name: "Przejmij" }).click();
+  await expect(page.getByRole("status")).toBeVisible();
+});
+
+test("calibration shows the active-learning queue", async ({ page }) => {
+  await login(page);
+  await nav(page, "Kalibracja").click();
+  await expect(page.getByRole("heading", { name: "Do oceny w pierwszej kolejności" })).toBeVisible();
+});
+
+test("settings page lists sources and the registry summary", async ({ page }) => {
+  await login(page);
+  await nav(page, "Ustawienia").click();
+  await expect(page.getByRole("heading", { name: "Źródła danych" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Rejestr podmiotów" })).toBeVisible();
+});
+
+test("system health shows live service status", async ({ page }) => {
+  await login(page);
+  await nav(page, "Zdrowie systemu").click();
+  await expect(page.getByRole("heading", { name: "Usługi" })).toBeVisible();
+  await expect(page.getByText("postgres")).toBeVisible();
+});

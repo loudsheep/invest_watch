@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import pl from "../i18n/pl.json";
 import Loading from "../components/Loading";
@@ -44,6 +45,16 @@ export default function Calibration() {
   });
 
   const retrain = useMutation({ mutationFn: () => api.retrain(module) });
+
+  const uncertain = useQuery({ queryKey: ["uncertain", module], queryFn: () => api.uncertainFindings(module) });
+  const decide = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: "confirmed" | "dismissed" }) => api.updateFindingStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["uncertain", module] });
+      queryClient.invalidateQueries({ queryKey: ["calibration", module] });
+      queryClient.invalidateQueries({ queryKey: ["findings"] });
+    },
+  });
 
   const color = moduleInfo(module).color;
   const threshold = draft ?? data?.threshold ?? 0.5;
@@ -207,6 +218,37 @@ export default function Calibration() {
             </div>
           </div>
 
+          <section className="panel">
+            <div className="panel__head">
+              <h2>Do oceny w pierwszej kolejności</h2>
+              <span className="muted">Findingi najbliższe progowi: Twoja decyzja najmocniej poprawi metryki</span>
+            </div>
+            {uncertain.data?.length === 0 && <p className="empty">Wszystkie findingi tego modułu mają już ocenę.</p>}
+            {uncertain.data?.map((f) => (
+              <div className="table-row" key={f.id}>
+                <span className="col-grow">
+                  <Link to={`/findings/${f.id}`}>{f.title || f.url}</Link>
+                  <p className="muted mono">
+                    wynik {fmt(f.score)} · odległość od progu {fmt(f.distance)}
+                  </p>
+                </span>
+                <button
+                  className="btn btn--primary btn--small"
+                  disabled={decide.isPending}
+                  onClick={() => decide.mutate({ id: f.id, status: "confirmed" })}
+                >
+                  Potwierdź
+                </button>
+                <button
+                  className="btn btn--secondary btn--small"
+                  disabled={decide.isPending}
+                  onClick={() => decide.mutate({ id: f.id, status: "dismissed" })}
+                >
+                  Odrzuć
+                </button>
+              </div>
+            ))}
+          </section>
         </>
       )}
     </>

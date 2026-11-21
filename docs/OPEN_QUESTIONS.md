@@ -10,9 +10,9 @@
 ## Still open
 
 - Registry sync pulls the public KNF lists live (investment firms, banks with brokerage, foreign branches, notified foreign firms which is the Polish view of the ESMA passport register, and public warnings) and falls back to `data/registry_knf.json`. Domains exist only for firms curated in `data/registry_seed.json`; the KNF lists carry none. The ESMA register itself is not queried directly.
-- Retraining uses all analyst labels; there is no uncertainty sampling.
+- Retraining uses all analyst labels. Active learning is limited to the "Do oceny w pierwszej kolejności" queue (findings closest to the threshold); the model itself does not select training samples.
 - Auth is JWT-in-cookie only; there is no OIDC abstraction layer (ADR-0016 describes the intended swap).
-- Video transcription (faster-whisper) and frame OCR are not implemented.
+- YouTube captions (manual, then automatic in the original language) are used as the transcript. Local speech-to-text (faster-whisper) and frame OCR are not implemented.
 - Criteria 9 (comprehensibility) and 11 (comparisons) are heuristic (sentence length, jargon, source present), not LLM-judged.
 
 ## Decisions taken without mentor input

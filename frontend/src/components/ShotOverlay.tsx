@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { blocksFor, type Quote } from "../lib/quotes";
 
 interface Rect {
   x: number;
@@ -14,12 +15,6 @@ interface StyledElement {
   rect?: Rect;
 }
 
-export interface Quote {
-  label: string;
-  text: string;
-  tone: "claim" | "warning";
-}
-
 interface Props {
   src: string;
   styles: Record<string, unknown> | null;
@@ -27,23 +22,9 @@ interface Props {
   preview?: { maxHeight: number; fullHref: string };
 }
 
-const MIN_BLOCK_LENGTH = 12;
-
 function elements(styles: Record<string, unknown> | null, key: string): StyledElement[] {
   const list = styles?.[key];
   return Array.isArray(list) ? (list as StyledElement[]).filter((el) => el.rect && el.rect.w > 0 && el.rect.h > 0) : [];
-}
-
-const normalize = (text: string) => text.toLowerCase().replace(/\s+/g, " ").trim();
-
-/** Page text blocks that contain a quote (or are contained in it, for quotes spanning several blocks). */
-function blocksFor(quote: Quote, blocks: StyledElement[]): StyledElement[] {
-  const wanted = normalize(quote.text);
-  if (wanted.length < MIN_BLOCK_LENGTH) return [];
-  return blocks.filter((block) => {
-    const text = normalize(block.text ?? "");
-    return text.length >= MIN_BLOCK_LENGTH && (text.includes(wanted) || wanted.includes(text));
-  });
 }
 
 function Marked({ rect, scale, className, label }: { rect: Rect; scale: number; className: string; label: string }) {

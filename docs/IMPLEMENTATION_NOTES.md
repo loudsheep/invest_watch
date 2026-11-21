@@ -81,3 +81,11 @@ The LLM client calls `/chat/completions` instead of Ollama's native `/api/genera
 - `GET /api/findings/{id}/similar`: nearest documents by pgvector cosine distance (campaign clusters).
 - Collectors get discovery config from `config/taxonomies.yaml` and the authorized registry domains (`services/scraper/app/discovery.py`), so open-web and social sources crawl without hand-maintained query lists.
 - M3 adds an RDAP domain-age signal; a lookalike domain younger than a year scores 0.9.
+
+## Evidence integrity, device screenshots and tests
+
+- Every captured document stores a `custody` manifest: SHA-256 of the HTML, screenshots and computed styles, sealed with a manifest hash and capture time (`common/investwatch_common/custody.py`). The evidence endpoint recomputes the hashes from Garage and reports `verified`, per-file status (`ok`, `modified`, `missing`); older documents have no manifest.
+- Tablet and phone full-page screenshots are stored next to the desktop one (`documents.device_screenshots`) and shown as tabs, with the risk-warning boxes measured at that viewport.
+- `GET /api/calibration/{module}/uncertain` returns unlabeled findings nearest to the threshold; deciding on them from the Kalibracja page creates labels.
+- `/api/auth/me` answers 200 with `null` for anonymous visitors so the login screen produces no console errors.
+- Tests: vitest (`frontend/src/**/*.test.ts`), Playwright E2E (`frontend/e2e`), pytest per service.

@@ -11,8 +11,9 @@ interface AlertsPanelProps {
   onClose: () => void;
 }
 
-export function useHighRiskAlerts() {
+export function useHighRiskAlerts(enabled = true) {
   return useQuery({
+    enabled,
     queryKey: ["findings", "alerts"],
     queryFn: () => api.listFindings({ status: "new", min_score: 0.8, limit: 10 }),
   });

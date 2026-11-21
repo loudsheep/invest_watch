@@ -48,16 +48,16 @@ export default function App() {
   const connected = useSocketStatus();
   const [panelOpen, setPanelOpen] = useState(false);
   const [readIds, setReadIds] = useState<Set<number>>(new Set());
-  const alerts = useHighRiskAlerts();
-  const unreadCount = (alerts.data ?? []).filter((f) => !readIds.has(f.id)).length;
-  const markRead = (ids: number[]) => setReadIds((prev) => new Set([...prev, ...ids]));
-
   const me = useQuery({
     queryKey: ["me"],
     queryFn: api.me,
     retry: (count, error) => !(error instanceof ApiError && error.status === 401) && count < 3,
     staleTime: Infinity,
   });
+  const alerts = useHighRiskAlerts(!!me.data);
+  const unreadCount = (alerts.data ?? []).filter((f) => !readIds.has(f.id)).length;
+  const markRead = (ids: number[]) => setReadIds((prev) => new Set([...prev, ...ids]));
+
 
   useEffect(() => {
     function onHighRisk(payload: HighRiskAlert) {
@@ -87,7 +87,7 @@ export default function App() {
   if (me.isPending) {
     return <p className="boot">{pl["common.loading"]}</p>;
   }
-  if (me.error instanceof ApiError && me.error.status === 401) {
+  if (me.data === null || (me.error instanceof ApiError && me.error.status === 401)) {
     return <Login />;
   }
   if (!me.data) {

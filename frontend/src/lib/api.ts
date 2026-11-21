@@ -59,6 +59,7 @@ export interface FindingDetail extends Finding {
   document_title: string | null;
   document_platform: string | null;
   screenshot_url: string | null;
+  device_screenshots: string[];
 }
 
 export interface SimilarFinding {
@@ -76,6 +77,13 @@ export interface EvidenceManifest {
   fetched_at: string | null;
   content_hash: string;
   files: Record<string, { sha256: string; bytes: number }>;
+  custody: {
+    captured_at: string;
+    manifest_sha256: string;
+    manifest_ok: boolean;
+    verified: boolean;
+    files: Record<string, { sha256: string; bytes: number; status: "ok" | "modified" | "missing" }>;
+  } | null;
 }
 
 export interface CaseRow {
@@ -146,6 +154,14 @@ export interface CurrentUser {
   role: string;
 }
 
+export interface UncertainFinding {
+  id: number;
+  score: number;
+  distance: number;
+  title: string | null;
+  url: string;
+}
+
 export interface CalibrationMetrics {
   module: string;
   threshold: number;
@@ -161,7 +177,7 @@ export interface CalibrationMetrics {
 export const api = {
   login: (username: string, password: string) =>
     request("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
-  me: () => request<CurrentUser>("/api/auth/me"),
+  me: () => request<CurrentUser | null>("/api/auth/me"),
   logout: () => request("/api/auth/logout", { method: "POST" }),
 
   listFindings: (params: Record<string, string | number | undefined>) => {
@@ -193,6 +209,7 @@ export const api = {
 
   listEntities: (q?: string) => request(`/api/entities${q ? `?q=${encodeURIComponent(q)}` : ""}`),
 
+  uncertainFindings: (module: string) => request<UncertainFinding[]>(`/api/calibration/${module}/uncertain`),
   getCalibration: (module: string) => request<CalibrationMetrics>(`/api/calibration/${module}`),
   setThreshold: (module: string, threshold: number) =>
     request(`/api/calibration/${module}/threshold?threshold=${threshold}`, { method: "PUT" }),

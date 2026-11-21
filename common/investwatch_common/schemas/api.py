@@ -64,6 +64,7 @@ class FindingDetail(FindingOut):
     document_title: str | None
     document_platform: str | None
     screenshot_url: str | None = None
+    device_screenshots: list[str] = []
     mentions: list[MentionOut] = []
     computed_styles: dict[str, Any] | None = None
 

@@ -92,6 +92,8 @@ class Document(Base):
     minio_html_key: Mapped[str | None] = mapped_column(String(500))
     minio_screenshot_key: Mapped[str | None] = mapped_column(String(500))
     computed_styles: Mapped[dict | None] = mapped_column(JSONB)
+    device_screenshots: Mapped[dict | None] = mapped_column(JSONB)
+    custody: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     findings: Mapped[list["Finding"]] = relationship(back_populates="document")

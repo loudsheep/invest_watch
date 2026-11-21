@@ -176,7 +176,7 @@ class OpenWebCollector(Collector):
                 text = page.inner_text("body")
                 screenshot = page.screenshot(full_page=True)
                 computed_styles = self._extract_risk_warning_styles(page)
-                computed_styles["viewports"] = self._extract_viewport_styles(page)
+                computed_styles["viewports"], device_screenshots = self._extract_viewport_styles(page)
                 author = page.evaluate("document.querySelector('meta[name=author]')?.content || null")
                 browser.close()
 
@@ -192,6 +192,7 @@ class OpenWebCollector(Collector):
                 content=text,
                 html=html,
                 screenshot_png=screenshot,
+                device_screenshots=device_screenshots,
                 computed_styles=computed_styles,
             )
         except Exception as exc:
@@ -212,14 +213,17 @@ class OpenWebCollector(Collector):
         except Exception:
             return {}
 
-    def _extract_viewport_styles(self, page) -> dict:
-        viewports = {}
+    def _extract_viewport_styles(self, page) -> tuple[dict, dict[str, bytes]]:
+        """Risk-warning styles and a full-page screenshot per tablet/phone viewport."""
+        viewports: dict[str, dict] = {}
+        screenshots: dict[str, bytes] = {}
         for name, width, height in VIEWPORTS:
             try:
                 page.set_viewport_size({"width": width, "height": height})
                 page.wait_for_timeout(150)
                 data = self._extract_risk_warning_styles(page)
                 viewports[name] = {"risk_warning_elements": data.get("risk_warning_elements", [])}
+                screenshots[name] = page.screenshot(full_page=True)
             except Exception:
                 continue
-        return viewports
+        return viewports, screenshots

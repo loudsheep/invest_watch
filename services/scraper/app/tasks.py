@@ -2,6 +2,7 @@ import re
 from datetime import UTC
 from pathlib import Path
 
+from investwatch_common.custody import build_custody, canonical_json
 from investwatch_common.db import SessionLocal
 from investwatch_common.logging import get_logger
 from investwatch_common.models import Document, Source
@@ -80,14 +81,26 @@ def _store_raw_document(db, source_id: int, raw: RawDocument) -> Document | None
 
     _detect_change(db, raw, normalized)
 
+    computed_styles = _with_dataset_label(raw)
     html_key = None
     screenshot_key = None
+    device_keys: dict[str, str] = {}
+    files: dict[str, bytes] = {}
     if raw.html:
         html_key = f"html/{doc_hash}.html"
-        put_object(html_key, raw.html.encode("utf-8"), "text/html")
+        files["page.html"] = raw.html.encode("utf-8")
+        put_object(html_key, files["page.html"], "text/html")
     if raw.screenshot_png:
         screenshot_key = f"screenshots/{doc_hash}.png"
+        files["screenshot.png"] = raw.screenshot_png
         put_object(screenshot_key, raw.screenshot_png, "image/png")
+    for name, data in raw.device_screenshots.items():
+        device_keys[name] = f"screenshots/{doc_hash}-{name}.png"
+        files[f"screenshot-{name}.png"] = data
+        put_object(device_keys[name], data, "image/png")
+    if computed_styles:
+        files["computed_styles.json"] = canonical_json(computed_styles)
+    custody = build_custody(raw.url, doc_hash, files)
 
     doc = Document(
         source_id=source_id,
@@ -102,7 +115,9 @@ def _store_raw_document(db, source_id: int, raw: RawDocument) -> Document | None
         text_normalized=normalized,
         minio_html_key=html_key,
         minio_screenshot_key=screenshot_key,
-        computed_styles=_with_dataset_label(raw),
+        computed_styles=computed_styles,
+        device_screenshots=device_keys or None,
+        custody=custody,
     )
     db.add(doc)
     try:

@@ -18,6 +18,7 @@ class RawDocument(BaseModel):
     content: str
     html: str | None = None
     screenshot_png: bytes | None = None
+    device_screenshots: dict[str, bytes] = {}
     computed_styles: dict[str, Any] | None = None
     extra: dict[str, Any] = {}
 

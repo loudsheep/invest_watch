@@ -11,6 +11,8 @@ export default function Calibration() {
   const [module, setModule] = useState("m1");
   const [draft, setDraft] = useState<number | null>(null);
   const queryClient = useQueryClient();
+  const me = useQuery({ queryKey: ["me"], queryFn: api.me, staleTime: Infinity });
+  const isAdmin = me.data?.role === "admin";
 
   const { data, isError, isPending, refetch } = useQuery({
     queryKey: ["calibration", module],
@@ -69,6 +71,7 @@ export default function Calibration() {
               className="slider"
               style={{ accentColor: color }}
               type="range"
+              disabled={!isAdmin}
               min={0}
               max={1}
               step={0.01}
@@ -97,9 +100,13 @@ export default function Calibration() {
               </div>
             </dl>
 
-            <button className="btn btn--ghost" disabled={retrain.isPending} onClick={() => retrain.mutate()}>
-              {retrain.isPending ? `${pl["calibration.retrain"]}...` : pl["calibration.retrain"]}
-            </button>
+            {isAdmin ? (
+              <button className="btn btn--ghost" disabled={retrain.isPending} onClick={() => retrain.mutate()}>
+                {retrain.isPending ? `${pl["calibration.retrain"]}...` : pl["calibration.retrain"]}
+              </button>
+            ) : (
+              <p className="empty">{pl["calibration.adminOnly"]}</p>
+            )}
             {retrain.isSuccess && (
               <p className="saved" role="status">
                 {pl["calibration.retrainStarted"]}

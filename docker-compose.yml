@@ -136,6 +136,7 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-google/gemma-3-12b-it}
+      PROXY_URLS: ${PROXY_URLS:-}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
       DEBUG: "false"
     volumes:

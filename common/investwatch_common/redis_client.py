@@ -15,3 +15,5 @@ def get_redis() -> redis.Redis:
 HIGH_RISK_CHANNEL = "findings:high_risk"
 RAW_DOCUMENTS_QUEUE = "raw_documents"
 FINDINGS_QUEUE = "findings"
+PROXY_FAILURES_KEY = "proxy:failures"
+PROXY_CIRCUIT_KEY = "proxy:circuit_open_until"

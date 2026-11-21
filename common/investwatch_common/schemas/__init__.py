@@ -6,6 +6,7 @@ from .api import (
     FindingOut,
     FindingStatusUpdate,
     LoginRequest,
+    MentionOut,
     PipelineStageEvent,
     ScanRequest,
     UserOut,
@@ -27,4 +28,5 @@ __all__ = [
     "PipelineStageEvent",
     "UserOut",
     "LoginRequest",
+    "MentionOut",
 ]

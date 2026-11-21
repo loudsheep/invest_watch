@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import pl from "../i18n/pl.json";
+import CaseGraph from "../components/CaseGraph";
 import Loading from "../components/Loading";
 import ModuleTag from "../components/ModuleTag";
 import QueryError from "../components/QueryError";
@@ -19,7 +20,7 @@ function CaseItem({ item }: { item: CaseRow }) {
       <button className="case__head" aria-expanded={open} onClick={() => setOpen(!open)}>
         <span className="row__id">#{item.id}</span>
         <span className="case__title">
-          {pl["cases.entity"]} #{item.primary_entity_id}
+          {item.primary_entity_name ?? `${pl["cases.entity"]} #${item.primary_entity_id}`}
           <span className="case__desc">{item.description || pl["cases.noDescription"]}</span>
         </span>
         <span className="case__count">{count}</span>
@@ -28,7 +29,9 @@ function CaseItem({ item }: { item: CaseRow }) {
       </button>
       {open && (
         <div className="case__body">
-          <h3 className="section__title">{pl["cases.findings"]}</h3>
+          <h3 className="section__title">{pl["cases.graph"]}</h3>
+          <CaseGraph caseId={item.id} />
+          <h3 className="section__title section__title--spaced">{pl["cases.findings"]}</h3>
           {detail.isPending && <Loading />}
           {detail.isError && <QueryError onRetry={() => detail.refetch()} />}
           <ul className="rows">

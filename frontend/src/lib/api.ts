@@ -27,7 +27,16 @@ export interface Finding {
   created_at: string;
 }
 
+export interface Mention {
+  entity_id: number;
+  entity_name: string;
+  role: string | null;
+  authorized: boolean | null;
+}
+
 export interface FindingDetail extends Finding {
+  mentions: Mention[];
+  computed_styles: Record<string, unknown> | null;
   model_version: number;
   prompt_version: number;
   evidence: string | null;
@@ -42,10 +51,35 @@ export interface FindingDetail extends Finding {
 export interface CaseRow {
   id: number;
   primary_entity_id: number;
+  primary_entity_name: string | null;
   finding_ids: number[] | null;
   description: string | null;
   status: string;
   created_at: string;
+}
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  type: "advertiser" | "entity" | "document" | "promo_code" | "domain";
+}
+
+export interface CaseGraph {
+  nodes: GraphNode[];
+  edges: { source: string; target: string; label: string }[];
+}
+
+export interface SystemHealth {
+  queues: Record<string, number>;
+  collectors: {
+    name: string;
+    type: string | null;
+    enabled: boolean;
+    last_crawl_at: string | null;
+    schedule_seconds: number | null;
+    documents: number;
+  }[];
+  proxies: { url: string; failures: number; circuit_open: boolean }[];
 }
 
 export interface CaseDetail {
@@ -91,7 +125,8 @@ export const api = {
 
   listCases: () => request<CaseRow[]>("/api/cases"),
   getCase: (id: number) => request<CaseDetail>(`/api/cases/${id}`),
-  getCaseGraph: (id: number) => request(`/api/cases/${id}/graph`),
+  getCaseGraph: (id: number) => request<CaseGraph>(`/api/cases/${id}/graph`),
+  systemHealth: () => request<SystemHealth>("/api/system/health"),
 
   listEntities: (q?: string) => request(`/api/entities${q ? `?q=${encodeURIComponent(q)}` : ""}`),
 

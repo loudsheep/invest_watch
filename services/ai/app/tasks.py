@@ -9,7 +9,7 @@ from .celery_app import celery_app
 from .classifiers import m1, m2, m3
 from .classifiers.head import get_model_version, score_with_fallback, train_head
 from .embeddings import embed
-from .entity_resolution import resolve_by_domain, resolve_mention
+from .entity_resolution import find_entities_in_text, resolve_by_domain, resolve_mention
 from .llm import PROMPT_VERSION, analyze
 from .topic_centroids import get_centroid
 
@@ -56,7 +56,8 @@ def _cached_llm_analysis(doc: Document, module: str):
 def _module_details(db, doc: Document, module: str) -> dict:
     text = doc.text_normalized or doc.content or ""
     if module == "m1":
-        return m1.build_details(text)
+        # raw content: normalization replaces URLs, which would hide ?ref= links and keeps case of promo codes
+        return m1.build_details(doc.content or text)
     if module == "m2":
         return m2.evaluate(text, doc.computed_styles)
     if module == "m3":
@@ -87,6 +88,12 @@ def _create_mentions(db, doc: Document) -> None:
         author_entity = resolve_mention(db, doc.author)
         if author_entity and (not domain_entity or author_entity.id != domain_entity.id):
             db.add(Mention(document_id=doc.id, entity_id=author_entity.id, role="publisher"))
+
+    db.flush()
+    known = {m.entity_id for m in db.query(Mention).filter(Mention.document_id == doc.id).all()}
+    for entity in find_entities_in_text(db, doc.content or ""):
+        if entity.id not in known:
+            db.add(Mention(document_id=doc.id, entity_id=entity.id, role="advertised_firm"))
     db.commit()
 
 

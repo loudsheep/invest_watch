@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from investwatch_common.db import get_db
 from investwatch_common.models import Case, Finding, User
@@ -11,7 +13,10 @@ router = APIRouter(prefix="/api/cases", tags=["cases"])
 
 @router.get("", response_model=list[CaseOut])
 def list_cases(db: Session = Depends(get_db), _user: User = Depends(get_current_user)):
-    return db.query(Case).order_by(Case.updated_at.desc()).limit(200).all()
+    cases = db.query(Case).order_by(Case.updated_at.desc()).limit(200).all()
+    return [
+        CaseOut.model_validate(c).model_copy(update={"primary_entity_name": c.primary_entity.name}) for c in cases
+    ]
 
 
 @router.get("/{case_id}")
@@ -25,6 +30,7 @@ def get_case(case_id: int, db: Session = Depends(get_db), _user: User = Depends(
     return {
         "id": case.id,
         "primary_entity_id": case.primary_entity_id,
+        "primary_entity_name": case.primary_entity.name,
         "status": case.status,
         "description": case.description,
         "findings": [
@@ -57,16 +63,22 @@ def case_graph(case_id: int, db: Session = Depends(get_db), _user: User = Depend
         add_node(doc_node, doc.title or doc.url, "document")
         edges.append({"source": f"entity:{primary.id}", "target": doc_node, "label": f.module})
 
+        if doc.author:
+            author_node = f"author:{doc.author}"
+            add_node(author_node, doc.author, "advertiser")
+            edges.append({"source": author_node, "target": doc_node, "label": "publishes"})
+
         promo = (f.details or {}).get("promo_code")
         if promo:
             promo_node = f"promo:{promo}"
             add_node(promo_node, promo, "promo_code")
             edges.append({"source": doc_node, "target": promo_node, "label": "uses_code"})
 
-        domain = (f.details or {}).get("domain")
+        domain = (f.details or {}).get("domain") or urlparse(doc.url).netloc
         if domain:
             domain_node = f"domain:{domain}"
             add_node(domain_node, domain, "domain")
             edges.append({"source": doc_node, "target": domain_node, "label": "hosted_on"})
 
-    return {"nodes": list(nodes.values()), "edges": edges}
+    unique_edges = {(e["source"], e["target"], e["label"]): e for e in edges}
+    return {"nodes": list(nodes.values()), "edges": list(unique_edges.values())}

@@ -2,7 +2,6 @@
 computed styles (needed for M2 visual prominence), httpx as a cheap fallback when
 Playwright is not required. Respects robots.txt by default (ADR per CONCEPT ch.9).
 """
-import json
 from collections.abc import Iterator
 from urllib.parse import urljoin
 from urllib.robotparser import RobotFileParser
@@ -19,8 +18,10 @@ from .base import Collector
 
 logger = get_logger(__name__)
 
+PROFIT_CLAIM_HINTS = ["zysk", "zarabiaj", "zwrot", "rentowność", "rentownosc"]
+
 RISK_WARNING_SELECTOR_HINTS = [
-    "disclaimer", "risk", "ryzyko", "ostrzezenie", "ostrzeżenie", "cfd-warning",
+    "disclaimer", "risk", "ryzyk", "ostrzezenie", "ostrzeżenie", "cfd-warning",
 ]
 
 
@@ -82,6 +83,7 @@ class OpenWebCollector(Collector):
                 text = page.inner_text("body")
                 screenshot = page.screenshot(full_page=True)
                 computed_styles = self._extract_risk_warning_styles(page)
+                author = page.evaluate("document.querySelector('meta[name=author]')?.content || null")
                 browser.close()
 
             if proxy_url:
@@ -92,6 +94,7 @@ class OpenWebCollector(Collector):
                 url=candidate,
                 platform="web",
                 title=title,
+                author=author,
                 content=text,
                 html=html,
                 screenshot_png=screenshot,
@@ -105,31 +108,33 @@ class OpenWebCollector(Collector):
 
     @staticmethod
     def _extract_risk_warning_styles(page) -> dict:
-        """Grabs font-size/color/contrast for elements that look like risk
-        disclaimers, to feed the M2 risk_prominence criterion."""
-        hints_json = json.dumps(RISK_WARNING_SELECTOR_HINTS)
-        script = f"""
-        () => {{
-            const hints = {hints_json};
-            const results = [];
-            const all = document.querySelectorAll('*');
-            for (const el of all) {{
-                const txt = (el.innerText || '').toLowerCase();
-                if (hints.some(h => txt.includes(h)) && txt.length < 2000) {{
+        """Grabs font-size/color for the smallest elements that look like risk
+        disclaimers and for profit claims, so M2 can compare the two."""
+        script = """
+        ([riskHints, profitHints]) => {
+            const collect = (hints) => {
+                const results = [];
+                for (const el of document.querySelectorAll('body *')) {
+                    const txt = (el.innerText || '').toLowerCase();
+                    if (!txt || txt.length > 2000 || !hints.some(h => txt.includes(h))) continue;
+                    // keep leaf-most matches only
+                    if ([...el.children].some(c => hints.some(h => (c.innerText || '').toLowerCase().includes(h)))) continue;
                     const style = window.getComputedStyle(el);
-                    results.push({{
+                    results.push({
                         tag: el.tagName,
+                        text: (el.innerText || '').trim().slice(0, 160),
                         fontSize: style.fontSize,
                         color: style.color,
                         backgroundColor: style.backgroundColor,
                         textLength: txt.length,
-                    }});
-                }}
-            }}
-            return results.slice(0, 10);
-        }}
+                    });
+                }
+                return results.slice(0, 10);
+            };
+            return { risk_warning_elements: collect(riskHints), profit_claim_elements: collect(profitHints) };
+        }
         """
         try:
-            return {"risk_warning_elements": page.evaluate(script)}
+            return page.evaluate(script, [RISK_WARNING_SELECTOR_HINTS, PROFIT_CLAIM_HINTS])
         except Exception:
             return {}

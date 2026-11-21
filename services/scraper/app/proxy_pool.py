@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 from investwatch_common.config import settings
 from investwatch_common.logging import get_logger
+from investwatch_common.redis_client import PROXY_CIRCUIT_KEY, PROXY_FAILURES_KEY, get_redis
 
 logger = get_logger(__name__)
 
@@ -50,9 +51,11 @@ class ProxyPool:
     def report_failure(self, proxy_url: str) -> None:
         with self._lock:
             self._failures[proxy_url] = self._failures.get(proxy_url, 0) + 1
+            get_redis().hincrby(PROXY_FAILURES_KEY, proxy_url, 1)
             if self._failures[proxy_url] >= FAILURE_THRESHOLD:
                 self._disabled_until[proxy_url] = time.time() + COOLDOWN_SECONDS
                 self._failures[proxy_url] = 0
+                get_redis().hset(PROXY_CIRCUIT_KEY, proxy_url, self._disabled_until[proxy_url])
                 logger.warning("proxy_circuit_open", proxy=proxy_url, cooldown=COOLDOWN_SECONDS)
 
     def report_success(self, proxy_url: str) -> None:

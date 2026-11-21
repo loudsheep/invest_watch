@@ -42,12 +42,23 @@ alongside `docs/OPEN_QUESTIONS.md` for what's still missing.
 
 ## frontend/
 
-- Plain React + Vite + TypeScript + hand-written CSS, not shadcn/ui/Tailwind as ADR-0007 specifies - a scope cut to get all P0 views working before the deadline. Views: Przegląd, Findingi (filterable, status change), Case'y (list only, no graph view wired into UI yet though the `/api/cases/{id}/graph` endpoint exists), Kalibracja (slider + PR curve + retrain), Skanuj URL (live pipeline stages via Socket.io room per scan).
+- Plain React + Vite + TypeScript + hand-written CSS, not shadcn/ui/Tailwind as ADR-0007 specifies - a scope cut to get all P0 views working before the deadline. Views: Przegląd, Findingi (filterable, status change), Case'y (list + graph), Zdrowie systemu, Kalibracja (slider + PR curve + retrain), Skanuj URL (live pipeline stages via Socket.io room per scan).
 - ESLint configured with `no-console` per AGENTS.md.
 
 ## demo-sites/
 
 - Plain Node `http` server (no framework) serving three static fixture pages matching the three paths `OpenWebCollector`/`DemoSitesCollector` expect: `/finfluencer-aurum` (M1: undisclosed affiliate link + promo code), `/landing-aurum-cfd` (M2: big profit claim, tiny risk disclaimer), `/shadow-advisory-pwm` (M3: advisory-service language from an unauthorized fictional entity). All entity/domain names are fictional per ADR-0017.
+
+## Dashboard views from the spec (done)
+
+- **Case graph:** `CaseGraph` (hand-rolled SVG, no graph dependency) draws advertiser -> firm -> document -> promo code / domain from `/api/cases/{id}/graph`. Case list shows the entity name.
+- **System health:** `GET /api/system/health` + `/system` page (refresh every 5 s): Celery queue lengths (Redis `LLEN`), collectors with last crawl / schedule / document count, proxies with failure count and circuit state. `ProxyPool` writes failures to Redis (`proxy:failures`, `proxy:circuit_open_until`) because it lives in the scraper process.
+- **M2 finding:** criteria with legal basis plus risk-warning vs profit-claim font comparison. `OpenWebCollector` now also extracts `profit_claim_elements`; `m2.font_comparison` compares the smallest warning font with the largest profit font and feeds `risk_prominence` (`min_font_ratio`). `demo-sites` collector now subclasses `OpenWebCollector` so fixtures get screenshots and computed styles.
+- **M1 / M3 findings:** promo code, affiliate evidence, disclosure flag, lookalike domain and registry entities (with `authorized`) shown as fields. `FindingDetail` returns `mentions`. Registry entities are also found in document text (whole-word alias match), not only by domain/author.
+- **Findings filters:** risk level (high >= 0.8, medium 0.5-0.8, low < 0.5, via `min_score`/new `max_score`), source platform, date range.
+- **Roles:** threshold slider and retrain are admin-only in the UI (API already enforced it).
+- M1 now analyses raw content (normalization replaced URLs, so `?ref=` was never detected) and the promo-code regex skips the word "promocyjnym".
+- Scraper kicks off `dataset` and `demo-sites` once at worker start.
 
 ## Known rough edges worth a second pass
 

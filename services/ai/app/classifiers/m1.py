@@ -7,7 +7,7 @@ import re
 AFFILIATE_PATTERNS = [
     r"[?&](ref|aff|affid|partner)=[\w-]+",
     r"utm_[a-z]+=[\w-]+",
-    r"z\s+kod(em|u)\s+[\w-]{3,20}",
+    r"z\s+kod(em|u)\s+(promocyjn\w+\s+)?[\w-]{3,20}",
     r"kod\s+promocyjny[:\s]+[\w-]{3,20}",
 ]
 
@@ -30,7 +30,7 @@ def extract_promo_code(text: str) -> str | None:
     match = re.search(r"kod\s+promocyjny[:\s]+([\w-]{3,20})", text, re.IGNORECASE)
     if match:
         return match.group(1)
-    match = re.search(r"z\s+kod(?:em|u)\s+([\w-]{3,20})", text, re.IGNORECASE)
+    match = re.search(r"z\s+kod(?:em|u)\s+(?:promocyjn\w+\s+)?([\w-]{3,20})", text, re.IGNORECASE)
     return match.group(1) if match else None
 
 

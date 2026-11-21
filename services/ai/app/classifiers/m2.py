@@ -39,27 +39,44 @@ def _profit_risk_balance_score(text: str, criterion: dict) -> tuple[float, str |
     return score, f"profit_mentions={profit_count} risk_mentions={risk_count} ratio={ratio:.1f}"
 
 
-def _visual_prominence_score(computed_styles: dict | None, criterion: dict) -> tuple[float, str | None]:
-    if not computed_styles or not computed_styles.get("risk_warning_elements"):
-        return 0.0, "no risk-warning element detected on page"
-
-    elements = computed_styles["risk_warning_elements"]
-    font_sizes = []
+def _font_px(elements: list[dict], pick) -> tuple[float, dict] | None:
+    sized = []
     for el in elements:
         try:
-            font_sizes.append(float(str(el.get("fontSize", "0px")).replace("px", "")))
+            sized.append((float(str(el.get("fontSize", "")).replace("px", "")), el))
         except ValueError:
             continue
+    return pick(sized, key=lambda item: item[0]) if sized else None
 
-    if not font_sizes:
-        return 0.3, "risk warning present but font size unreadable"
 
-    avg_font = sum(font_sizes) / len(font_sizes)
-    # Without a measured profit-claim font size (would need separate selector
-    # pass), fall back to an absolute-legibility heuristic: assume ~16px body
-    # text is "normal" and anything meaningfully smaller looks suppressed.
-    score = min(1.0, avg_font / 16.0)
-    return score, f"avg_risk_warning_font_px={avg_font:.1f}"
+def font_comparison(computed_styles: dict | None) -> dict | None:
+    """Smallest risk-warning font vs largest profit-claim font on the page."""
+    if not computed_styles:
+        return None
+    risk = _font_px(computed_styles.get("risk_warning_elements") or [], min)
+    profit = _font_px(computed_styles.get("profit_claim_elements") or [], max)
+    if risk is None:
+        return None
+    result = {"risk_px": risk[0], "risk_text": risk[1].get("text")}
+    if profit is not None:
+        result.update(
+            profit_px=profit[0], profit_text=profit[1].get("text"), ratio=round(risk[0] / profit[0], 2)
+        )
+    return result
+
+
+def _visual_prominence_score(computed_styles: dict | None, criterion: dict) -> tuple[float, str | None]:
+    comparison = font_comparison(computed_styles)
+    if comparison is None:
+        return 0.0, "no risk-warning element detected on page"
+
+    if "ratio" not in comparison:
+        # No profit claim measured: absolute-legibility heuristic against ~16px body text.
+        return min(1.0, comparison["risk_px"] / 16.0), f"risk_warning_font_px={comparison['risk_px']:.1f}"
+
+    min_ratio = criterion.get("min_font_ratio", 0.8)
+    score = min(1.0, comparison["ratio"] / min_ratio)
+    return score, f"risk_font={comparison['risk_px']:.0f}px profit_font={comparison['profit_px']:.0f}px ratio={comparison['ratio']}"
 
 
 def evaluate(text: str, computed_styles: dict | None = None) -> dict:
@@ -100,4 +117,5 @@ def evaluate(text: str, computed_styles: dict | None = None) -> dict:
         "compliance_score": compliance_score,
         "risk_score": 1 - compliance_score,
         "criteria": criteria_results,
+        "font_comparison": font_comparison(computed_styles),
     }

@@ -9,6 +9,8 @@ import Ruler from "../components/Ruler";
 import { api } from "../lib/api";
 import { HIGH_RISK, MODULES, STATUSES, formatDate, statusLabel } from "../lib/modules";
 
+const labels = pl as Record<string, string>;
+
 interface ChipsProps {
   label: string;
   value: string;
@@ -29,13 +31,33 @@ function Chips({ label, value, options, onChange }: ChipsProps) {
   );
 }
 
+const RISK_RANGES: Record<string, { min?: number; max?: number }> = {
+  high: { min: HIGH_RISK },
+  medium: { min: 0.5, max: HIGH_RISK },
+  low: { max: 0.5 },
+};
+const PLATFORMS = ["web", "youtube", "dataset"];
+
 export default function Findings() {
   const [module, setModule] = useState("");
   const [status, setStatus] = useState("");
+  const [risk, setRisk] = useState("");
+  const [platform, setPlatform] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const { data, isError, isSuccess, isPending, refetch } = useQuery({
-    queryKey: ["findings", module, status],
-    queryFn: () => api.listFindings({ module: module || undefined, status: status || undefined }),
+    queryKey: ["findings", module, status, risk, platform, dateFrom, dateTo],
+    queryFn: () =>
+      api.listFindings({
+        module: module || undefined,
+        status: status || undefined,
+        source_platform: platform || undefined,
+        min_score: RISK_RANGES[risk]?.min,
+        max_score: RISK_RANGES[risk]?.max,
+        date_from: dateFrom ? `${dateFrom}T00:00:00` : undefined,
+        date_to: dateTo ? `${dateTo}T23:59:59` : undefined,
+      }),
   });
 
   return (
@@ -55,6 +77,29 @@ export default function Findings() {
           onChange={setStatus}
           options={STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))}
         />
+        <Chips
+          label={pl["common.risk"]}
+          value={risk}
+          onChange={setRisk}
+          options={Object.keys(RISK_RANGES).map((r) => ({ value: r, label: labels[`filters.risk.${r}`] }))}
+        />
+        <Chips
+          label={pl["common.source"]}
+          value={platform}
+          onChange={setPlatform}
+          options={PLATFORMS.map((p) => ({ value: p, label: p }))}
+        />
+        <div className="chips">
+          <span className="chips__label">{pl["common.date"]}</span>
+          <label className="datefield">
+            {pl["common.from"]}
+            <input className="input" type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => setDateFrom(e.target.value)} />
+          </label>
+          <label className="datefield">
+            {pl["common.to"]}
+            <input className="input" type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => setDateTo(e.target.value)} />
+          </label>
+        </div>
       </div>
 
       {isPending && <Loading />}

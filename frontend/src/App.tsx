@@ -10,6 +10,7 @@ import Findings from "./pages/Findings";
 import FindingDetail from "./pages/FindingDetail";
 import Calibration from "./pages/Calibration";
 import Cases from "./pages/Cases";
+import SystemHealth from "./pages/SystemHealth";
 import ScanNow from "./pages/ScanNow";
 import Login from "./pages/Login";
 
@@ -96,6 +97,9 @@ export default function App() {
             <NavLink to="/scan" className="tabs__link">
               {pl["nav.scan"]}
             </NavLink>
+            <NavLink to="/system" className="tabs__link">
+              {pl["nav.system"]}
+            </NavLink>
           </nav>
           <div className="topbar__user">
             <span
@@ -124,6 +128,7 @@ export default function App() {
           <Route path="/cases" element={<Cases />} />
           <Route path="/calibration" element={<Calibration />} />
           <Route path="/scan" element={<ScanNow />} />
+          <Route path="/system" element={<SystemHealth />} />
         </Routes>
       </main>
 

@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import pl from "../i18n/pl.json";
 import Loading from "../components/Loading";
+import FindingFacts, { quotesFor } from "../components/FindingFacts";
 import ModuleTag from "../components/ModuleTag";
 import QueryError from "../components/QueryError";
 import Ruler from "../components/Ruler";
@@ -43,6 +44,7 @@ export default function FindingDetail() {
       : `${API_URL}${data.screenshot_url}`
     : null;
   const high = data.score >= HIGH_RISK;
+  const quotes = quotesFor(data);
 
   return (
     <>
@@ -61,16 +63,18 @@ export default function FindingDetail() {
 
       <div className="dossier">
         <div className="dossier__main">
-          <section>
-            <h2 className="section__title">{pl["finding.evidence"]}</h2>
-            {data.evidence ? (
-              <blockquote className="evidence">
-                <mark>{data.evidence}</mark>
-              </blockquote>
-            ) : (
-              <p className="empty">{pl["finding.evidenceEmpty"]}</p>
-            )}
-          </section>
+          <FindingFacts data={data} />
+
+          {quotes.length > 0 && (
+            <section>
+              <h2 className="section__title">{pl["finding.quotes"]}</h2>
+              {quotes.map((q) => (
+                <blockquote key={q} className="evidence">
+                  <mark>{q}</mark>
+                </blockquote>
+              ))}
+            </section>
+          )}
 
           {data.explanation && (
             <section>

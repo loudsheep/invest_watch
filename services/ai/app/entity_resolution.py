@@ -3,6 +3,7 @@ by alias (fuzzy) and by domain found in the document URL. Results are cached
 in Redis as `wzmianka -> entity_id | null` per the caching strategy (ADR-0005).
 """
 import json
+import re
 from urllib.parse import urlparse
 
 from investwatch_common.models import Entity, EntityAlias
@@ -43,3 +44,12 @@ def resolve_mention(db: Session, text: str) -> Entity | None:
     cache_payload = json.dumps({"entity_id": entity.id if entity else None})
     redis_client.set(cache_key, cache_payload, ex=CACHE_TTL_SECONDS)
     return entity
+
+
+def find_entities_in_text(db: Session, text: str) -> list[Entity]:
+    """Registry entities whose name or alias appears verbatim (whole words) in the text."""
+    found: dict[int, Entity] = {}
+    for alias in db.query(EntityAlias).all():
+        if alias.entity_id not in found and re.search(rf"\b{re.escape(alias.alias)}\b", text, re.IGNORECASE):
+            found[alias.entity_id] = alias.entity
+    return list(found.values())

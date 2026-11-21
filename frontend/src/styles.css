@@ -1024,3 +1024,163 @@ button {
     animation-duration: 2.4s;
   }
 }
+
+/* Finding facts, criteria, fonts */
+
+.facts {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+}
+
+.facts > li {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.facts--grid {
+  display: grid;
+  grid-template-columns: 11rem 1fr;
+  gap: 0.5rem 1rem;
+}
+
+.facts--grid dt {
+  font-weight: 600;
+}
+
+.facts--grid dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.facts__meta {
+  color: var(--graphite);
+  font-size: 0.9rem;
+}
+
+.facts__bad {
+  color: var(--stamp);
+  font-weight: 600;
+}
+
+.facts code,
+.criteria code {
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 0 0.35rem;
+  word-break: break-all;
+}
+
+.datefield {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.datefield .input {
+  width: auto;
+  padding: 0.2rem 0.5rem;
+}
+
+.criteria {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+}
+
+.criteria > li {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.criteria__score {
+  font-weight: 800;
+  text-align: right;
+}
+
+.criteria__ok .criteria__score {
+  color: #1d6e7a;
+}
+
+.criteria__fail .criteria__score {
+  color: var(--stamp);
+}
+
+.criteria__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.fonts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.fonts__box {
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  overflow: hidden;
+}
+
+.fonts__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--graphite);
+}
+
+.fonts__sample {
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.fonts__sample small {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--graphite);
+}
+
+/* Case graph */
+
+.graph {
+  overflow-x: auto;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  padding: 0.5rem;
+}
+
+.graph svg {
+  min-width: 520px;
+}
+
+.graph__edge {
+  stroke: var(--graphite);
+  stroke-width: 1.5;
+  opacity: 0.6;
+}
+
+.graph__label {
+  fill: #fff;
+  font-size: 12px;
+}
+
+.graph__column {
+  fill: var(--graphite);
+  font-size: 11px;
+  font-weight: 600;
+}

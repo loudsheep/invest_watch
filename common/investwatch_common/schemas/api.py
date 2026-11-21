@@ -44,6 +44,13 @@ class FindingOut(BaseModel):
         from_attributes = True
 
 
+class MentionOut(BaseModel):
+    entity_id: int
+    entity_name: str
+    role: str | None
+    authorized: bool | None
+
+
 class FindingDetail(FindingOut):
     model_version: int
     prompt_version: int
@@ -54,6 +61,8 @@ class FindingDetail(FindingOut):
     document_title: str | None
     document_platform: str | None
     screenshot_url: str | None = None
+    mentions: list[MentionOut] = []
+    computed_styles: dict[str, Any] | None = None
 
     class Config:
         from_attributes = True
@@ -66,6 +75,7 @@ class FindingStatusUpdate(BaseModel):
 class CaseOut(BaseModel):
     id: int
     primary_entity_id: int
+    primary_entity_name: str | None = None
     finding_ids: list[int] | None
     description: str | None
     status: str

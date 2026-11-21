@@ -2,8 +2,8 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from investwatch_common.db import get_db
-from investwatch_common.models import Document, Finding, Label, User
-from investwatch_common.schemas import FindingDetail, FindingOut, FindingStatusUpdate
+from investwatch_common.models import Document, Finding, Label, Mention, User
+from investwatch_common.schemas import FindingDetail, FindingOut, FindingStatusUpdate, MentionOut
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,7 @@ def list_findings(
     module: str | None = None,
     status_filter: str | None = Query(default=None, alias="status"),
     min_score: float | None = None,
+    max_score: float | None = None,
     source_platform: str | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
@@ -36,6 +37,8 @@ def list_findings(
         query = query.filter(Finding.status == status_filter)
     if min_score is not None:
         query = query.filter(Finding.score >= min_score)
+    if max_score is not None:
+        query = query.filter(Finding.score < max_score)
     if source_platform:
         query = query.filter(Document.platform == source_platform)
     if date_from:
@@ -102,6 +105,13 @@ def get_finding(
         document_title=doc.title,
         document_platform=doc.platform,
         screenshot_url=f"/api/documents/{doc.id}/screenshot" if doc.minio_screenshot_key else None,
+        computed_styles=doc.computed_styles,
+        mentions=[
+            MentionOut(
+                entity_id=m.entity_id, entity_name=m.entity.name, role=m.role, authorized=m.entity.authorized
+            )
+            for m in db.query(Mention).filter(Mention.document_id == doc.id).all()
+        ],
     )
 
 

@@ -18,3 +18,12 @@ These are known shortfalls against the full spec, left for later passes - see `d
 - Video transcription (faster-whisper) / frame OCR (P3): not started.
 - Dashboard uses hand-rolled CSS, not shadcn/ui + Tailwind (deviation from ADR-0007, chosen to save setup time under the deadline). Functionally equivalent views exist; restyling later is low-risk since components are already isolated per page.
 - OIDC-ready auth interface (ADR-0016 mentions swapping to Keycloak later): current auth is JWT-in-cookie only, no abstraction layer added yet since there is a single IdP today.
+
+# Decisions taken without mentor input (resolved by us)
+
+- **Risk level buckets in the findings filter:** high >= 0.8 (same as the alert threshold), medium 0.5-0.8, low < 0.5. Not configurable.
+- **Source filter:** filters by document `platform` (web, youtube, dataset), the closest thing to a "source" visible to an analyst.
+- **Graph "advertiser" node:** document `author` (for web pages the `<meta name="author">`). Pages without it have no advertiser node.
+- **Font comparison:** smallest risk-warning font vs largest profit-claim font on the page. Both found by keyword hints in the DOM, so it is a heuristic, not layout analysis.
+- **Proxy errors in health view:** cumulative failure count per configured proxy plus circuit-breaker state, kept in Redis.
+- **Still open:** M2 rules do not yet cover all 18 criteria from the attachment `ZASÓB DLA UCZESTNIKÓW - InvestWatch - kryteria oceny informacji o ryzyku.docx` (open question 1 above is partly outdated: the attachment arrived). The fallback classifier score (cosine to topic centroid) is ~0.9 for any text, so risk filters and the threshold slider are not yet meaningful until a head is trained.

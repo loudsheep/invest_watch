@@ -17,8 +17,9 @@ from celery.signals import worker_ready  # noqa: E402
 
 
 @worker_ready.connect
-def _run_dataset_collector_once(**kwargs):
-    """The dataset source has no schedule (runs once); kick it off as soon as
-    this worker can accept tasks instead of waiting on scheduler."""
-    celery_app.send_task("scraper_worker.tasks.run_collector", args=["dataset"])
+def _run_collectors_once(**kwargs):
+    """The dataset source has no schedule (runs once) and demo-sites should fill
+    the dashboard right away; kick both off instead of waiting for a beat interval."""
+    for source in ("dataset", "demo-sites"):
+        celery_app.send_task("scraper_worker.tasks.run_collector", args=[source])
 

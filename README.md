@@ -25,6 +25,42 @@ Jedna komenda: migracje i seed rejestru (`migrate`), bootstrap storage'u (`garag
 - Wszystkie sekrety są tylko w `.env`; brak zmiennej zatrzymuje `docker compose` z błędem. Wartości z `.env.example` służą wyłącznie do lokalnego demo - poza nim wygeneruj nowe (`openssl rand -hex 32`).
 - Porty infrastruktury (Postgres, Redis, Garage, Ollama, SearXNG) są wystawione tylko na `127.0.0.1`.
 
+### Pierwszy start
+
+- Build obrazów trwa kilkanaście minut (PyTorch w `ai-worker`, Chromium w `scraper-worker`). Kolejne starty korzystają z cache.
+- Przy pierwszym skanie `ai-worker` pobiera model embeddingów `multilingual-e5-base` (~1 GB) do wolumenu `ai_models`, więc pierwszy wynik pojawia się z opóźnieniem.
+- Docker Desktop ma domyślnie niski limit pamięci. Ustaw co najmniej 12 GB w Settings → Resources → Memory, inaczej kontenery mogą być zabijane (OOM).
+- LLM z compose działa na CPU, więc analiza jednego dokumentu może trwać kilkadziesiąt sekund.
+
+### Pierwsze kroki
+
+1. Zaloguj się na http://localhost:47173 jako `admin`.
+2. W zakładce **Skanuj URL** wklej `http://demo-sites:8080/landing-aurum-cfd` i kliknij **Skanuj**. Etapy pipeline'u pojawiają się na żywo.
+3. Wynik trafia do zakładki **Findingi**.
+
+Strony demo (sandbox, ADR-0017) można też otworzyć w przeglądarce: http://localhost:47080/landing-aurum-cfd. Pełna lista: [demo-sites/README.md](demo-sites/README.md).
+
+### Uruchomienie z zewnętrznym LLM (bez Ollamy w compose)
+
+Dowolny endpoint zgodny z OpenAI, np. Ollama na innym serwerze albo OpenRouter. W `.env`:
+
+```env
+LLM_BASE_URL=http://adres-serwera:11434/v1
+LLM_MODEL=gemma4:12b
+LLM_API_KEY=
+```
+
+Dla OpenRouter: `LLM_BASE_URL=https://openrouter.ai/api/v1`, `LLM_API_KEY=sk-or-...`, `LLM_MODEL=google/gemma-3-12b-it`.
+
+`ai-worker` zależy w compose od serwisu `ollama`, dlatego stos uruchamia się w dwóch krokach:
+
+```bash
+docker compose up -d --build postgres redis garage garage-init searxng migrate api scraper-worker scheduler frontend demo-sites
+docker compose up -d --build --no-deps ai-worker
+```
+
+Drugi krok uruchamia `ai-worker` bez `ollama` i `ollama-init`. Kolejność ma znaczenie, bo `migrate` musi się zakończyć przed startem workera.
+
 Deploy produkcyjny (Coolify, zewnętrzna Ollama): [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Konfiguracja serwisów

@@ -80,9 +80,11 @@ LLM_API_KEY=
 
 CORS_ORIGINS=https://investwatch.b.solvro.pl
 VITE_API_URL=https://investwatch-api.b.solvro.pl
+VITE_DEMO_SITES_URL=https://investwatch-demo.b.solvro.pl
 ```
 
-- `VITE_API_URL` trafia do frontendu w czasie **buildu** (build arg). Po zmianie trzeba zrobić redeploy, żeby front przebudować.
+- `VITE_API_URL` i `VITE_DEMO_SITES_URL` trafiają do frontendu w czasie **buildu** (build arg). Po zmianie trzeba zrobić redeploy, żeby front przebudować.
+- `VITE_DEMO_SITES_URL` zamienia wewnętrzne adresy demo (`http://demo-sites:8080`, `http://nordik-brokr-demo.local:8080`) w linkach findingów na publiczny adres demo-sites. Puste oznacza brak podmiany.
 - `CORS_ORIGINS` to dokładny origin frontu: z `https://`, bez ukośnika na końcu.
 - Opcjonalne: `S3_BUCKET` (domyślnie `investwatch-evidence`) i `PROXY_URLS` (puste oznacza połączenie bezpośrednie).
 
@@ -94,11 +96,11 @@ W widoku zasobu, przy każdym serwisie, w polu **Domains** wpisz:
 
 | Serwis | Wartość pola Domains |
 |---|---|
-| `frontend` | `https://investwatch.b.solvro.pl` |
+| `frontend` | `https://investwatch.b.solvro.pl:80` |
 | `api` | `https://investwatch-api.b.solvro.pl:8000` |
 | `demo-sites` | `https://investwatch-demo.b.solvro.pl:8080` |
 
-Sufiks `:8000` / `:8080` oznacza port w kontenerze, na który Coolify kieruje ruch. Publicznie i tak działa zwykłe HTTPS na 443. Pozostałym serwisom zostaw pole puste. Socket.io (WebSocket) przechodzi przez Traefik bez dodatkowej konfiguracji.
+Sufiks `:80` / `:8000` / `:8080` oznacza port w kontenerze, na który Coolify kieruje ruch. Publicznie i tak działa zwykłe HTTPS na 443. Pozostałym serwisom zostaw pole puste. Socket.io (WebSocket) przechodzi przez Traefik bez dodatkowej konfiguracji.
 
 ## 6. Pierwszy deploy
 

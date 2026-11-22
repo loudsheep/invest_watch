@@ -9,6 +9,7 @@ import ScreenshotViewer from "../components/ScreenshotViewer";
 import QueryError from "../components/QueryError";
 import StatusBadge from "../components/StatusBadge";
 import { API_URL, api, type FindingDetail as FindingDetailData } from "../lib/api";
+import { publicUrl } from "../lib/demoSites";
 import { HIGH_RISK, formatDate, moduleInfo, riskBand } from "../lib/modules";
 
 const BAND_LABEL = { low: "Niskie", medium: "Średnie", high: "Wysokie", critical: "Krytyczne" } as const;
@@ -59,8 +60,8 @@ export default function FindingDetail() {
           </p>
           <h1 className="page__title">{data.document_title || `Finding #${data.id}`}</h1>
           <p className="source-line">
-            <a href={data.document_url} target="_blank" rel="noreferrer" className="source-line__url">
-              {data.document_url}
+            <a href={publicUrl(data.document_url)} target="_blank" rel="noreferrer" className="source-line__url">
+              {publicUrl(data.document_url)}
             </a>
             {data.document_platform && <span className="muted">{data.document_platform}</span>}
             <span className="muted">wykryto {formatDate(data.created_at)}</span>

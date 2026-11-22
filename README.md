@@ -97,4 +97,4 @@ Patrz ADR-0013 oraz `docs/CONCEPT.md` sekcja 13.
 
 ## Status implementacji i otwarte kwestie
 
-`docker compose up` stawia cały stos (P0 ze specyfikacji). Niejasności i uproszczenia przyjęte podczas implementacji są spisane w [docs/OPEN_QUESTIONS.md](docs/OPEN_QUESTIONS.md) i [docs/IMPLEMENTATION_NOTES.md](docs/IMPLEMENTATION_NOTES.md).
+`docker compose up` stawia cały stos (P0 ze specyfikacji). Pełny wykaz narzędzi, bibliotek i modeli z licencjami: [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md). Niejasności i uproszczenia przyjęte podczas implementacji są spisane w [docs/OPEN_QUESTIONS.md](docs/OPEN_QUESTIONS.md) i [docs/IMPLEMENTATION_NOTES.md](docs/IMPLEMENTATION_NOTES.md).

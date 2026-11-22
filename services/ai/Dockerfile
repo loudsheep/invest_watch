@@ -12,4 +12,7 @@ WORKDIR /app/services/ai
 RUN uv pip install --system --no-cache torch --index-url https://download.pytorch.org/whl/cpu
 RUN uv pip install --system --no-cache -e . -e ../../common
 
+COPY config /app/config
+COPY data /app/data
+
 CMD ["celery", "-A", "app.celery_app", "worker", "--loglevel=info", "-Q", "ai"]

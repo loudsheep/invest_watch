@@ -25,3 +25,4 @@ Format: [MADR](https://adr.github.io/madr/). One decision per file, numbered seq
 | [0019](0019-gdpr-and-observability.md) | GDPR data handling and observability | Accepted |
 | [0020](0020-object-storage-garage.md) | Object storage: Garage instead of MinIO | Accepted |
 | [0021](0021-frontend-styling-and-default-llm.md) | Hand-written frontend styling and Ollama as default LLM endpoint | Accepted |
+| [0022](0022-production-deployment-coolify.md) | Production deployment on Coolify with an external LLM endpoint | Accepted |

@@ -16,4 +16,7 @@ COPY services/scraper /app/services/scraper
 WORKDIR /app/services/scraper
 RUN uv pip install --system --no-cache -e . -e ../../common
 
+COPY config /app/config
+COPY data /app/data
+
 CMD ["celery", "-A", "app.celery_app", "worker", "--loglevel=info", "-Q", "scraping"]

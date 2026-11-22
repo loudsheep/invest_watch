@@ -25,6 +25,8 @@ Jedna komenda: migracje i seed rejestru (`migrate`), bootstrap storage'u (`garag
 - Wszystkie sekrety są tylko w `.env`; brak zmiennej zatrzymuje `docker compose` z błędem. Wartości z `.env.example` służą wyłącznie do lokalnego demo - poza nim wygeneruj nowe (`openssl rand -hex 32`).
 - Porty infrastruktury (Postgres, Redis, Garage, Ollama, SearXNG) są wystawione tylko na `127.0.0.1`.
 
+Deploy produkcyjny (Coolify, zewnętrzna Ollama): [docs/DEPLOY.md](docs/DEPLOY.md).
+
 ## Konfiguracja serwisów
 
 Wszystkie zmienne w `.env` (skopiowane z `.env.example`). Kluczowe:

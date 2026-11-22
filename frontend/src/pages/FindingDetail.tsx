@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import pl from "../i18n/pl.json";
 import Loading from "../components/Loading";
@@ -16,6 +16,7 @@ const BAND_LABEL = { low: "Niskie", medium: "Średnie", high: "Wysokie", critica
 
 export default function FindingDetail() {
   const { id } = useParams();
+  const listSearch = (useLocation().state as { listSearch?: string } | null)?.listSearch;
   const queryClient = useQueryClient();
   const [note, setNote] = useState("");
 
@@ -52,7 +53,7 @@ export default function FindingDetail() {
       <div className="page__header page__header--top">
         <div>
           <p className="crumbs">
-            <Link to="/findings">← {pl["findings.title"]}</Link>
+            <Link to={listSearch ? `/findings?${listSearch}` : "/findings"}>← {pl["findings.title"]}</Link>
             <span className="muted"> / #{data.id}</span>
           </p>
           <p className="module-line">

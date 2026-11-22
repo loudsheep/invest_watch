@@ -57,6 +57,26 @@ test("finding detail shows criteria, evidence integrity and the screenshot", asy
   await expect(page.getByAltText("Zrzut ekranu zapisany jako dowód")).toBeVisible();
 });
 
+test("findings filters and sorting survive opening a finding and going back", async ({ page }) => {
+  await login(page);
+  await nav(page, "Findingi").click();
+  const sort = page.getByLabel("Sortowanie");
+  const webSource = page.locator(".check").filter({ has: page.locator(".check__label", { hasText: /^web$/ }) }).locator("input");
+  await sort.selectOption("date_asc");
+  await webSource.click();
+  await expect(webSource).toBeChecked();
+
+  await page.locator(`main a[href^="/findings/"]`).first().click();
+  await page.getByRole("link", { name: /← Findingi/ }).click();
+  await expect(sort).toHaveValue("date_asc");
+  await expect(webSource).toBeChecked();
+
+  await page.locator(`main a[href^="/findings/"]`).first().click();
+  await page.goBack();
+  await expect(sort).toHaveValue("date_asc");
+  await expect(webSource).toBeChecked();
+});
+
 test("an analyst decision changes the finding status", async ({ page }) => {
   await login(page);
   await nav(page, "Findingi").click();

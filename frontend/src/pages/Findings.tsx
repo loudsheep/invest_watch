@@ -14,7 +14,9 @@ const PLATFORMS = ["web", "youtube", "tiktok", "dataset"];
 const PAGE_SIZE = 10;
 const BINS = 20;
 
-type Sort = "score_desc" | "score_asc" | "date_desc" | "date_asc";
+const SORTS = ["score_desc", "score_asc", "date_desc", "date_asc"] as const;
+type Sort = (typeof SORTS)[number];
+const FILTER_KEYS = ["module", "status", "source", "min", "max", "from", "to", "risk"];
 
 function toggle(list: string[], value: string): string[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
@@ -55,18 +57,45 @@ function CheckGroup({ title, options, selected, onToggle }: CheckGroupProps) {
 
 export default function Findings() {
   const queryClient = useQueryClient();
-  const [searchParams] = useSearchParams();
-  const [modules, setModules] = useState<string[]>([]);
-  const [statuses, setStatuses] = useState<string[]>([]);
-  const [platforms, setPlatforms] = useState<string[]>([]);
-  const [minScore, setMinScore] = useState(searchParams.get("risk") === "high" ? 0.8 : 0);
-  const [maxScore, setMaxScore] = useState(1);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [sort, setSort] = useState<Sort>("score_desc");
-  const [search, setSearch] = useState(searchParams.get("q") ?? "");
-  const [page, setPage] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selected, setSelected] = useState<Set<number>>(new Set());
+
+  const listParam = (key: string) => searchParams.get(key)?.split(",").filter(Boolean) ?? [];
+  const modules = listParam("module");
+  const statuses = listParam("status");
+  const platforms = listParam("source");
+  const minScore = Number(searchParams.get("min") ?? (searchParams.get("risk") === "high" ? 0.8 : 0));
+  const maxScore = Number(searchParams.get("max") ?? 1);
+  const dateFrom = searchParams.get("from") ?? "";
+  const dateTo = searchParams.get("to") ?? "";
+  const sortParam = searchParams.get("sort");
+  const sort: Sort = SORTS.find((s) => s === sortParam) ?? "score_desc";
+  const search = searchParams.get("q") ?? "";
+  const page = Number(searchParams.get("page") ?? 0);
+
+  function updateParams(changes: Record<string, string | null>) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        Object.entries(changes).forEach(([key, value]) => (value ? next.set(key, value) : next.delete(key)));
+        if (!("page" in changes)) next.delete("page");
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
+  const setList = (key: string) => (values: string[]) => updateParams({ [key]: values.join(",") || null });
+  const setModules = setList("module");
+  const setStatuses = setList("status");
+  const setPlatforms = setList("source");
+  const setMinScore = (value: number) => updateParams({ min: value > 0 ? String(value) : null, risk: null });
+  const setMaxScore = (value: number) => updateParams({ max: value < 1 ? String(value) : null });
+  const setDateFrom = (value: string) => updateParams({ from: value || null });
+  const setDateTo = (value: string) => updateParams({ to: value || null });
+  const setSort = (value: Sort) => updateParams({ sort: value === "score_desc" ? null : value });
+  const setSearch = (value: string) => updateParams({ q: value || null });
+  const setPage = (value: number) => updateParams({ page: value > 0 ? String(value) : null });
 
   const { data, isError, isPending, refetch } = useQuery({
     queryKey: ["findings", "list", minScore, maxScore, dateFrom, dateTo, search],
@@ -129,14 +158,7 @@ export default function Findings() {
   }
 
   function clearFilters() {
-    setModules([]);
-    setStatuses([]);
-    setPlatforms([]);
-    setMinScore(0);
-    setMaxScore(1);
-    setDateFrom("");
-    setDateTo("");
-    setPage(0);
+    updateParams(Object.fromEntries(FILTER_KEYS.map((key) => [key, null])));
   }
 
   function toggleRow(id: number) {
@@ -287,10 +309,7 @@ export default function Findings() {
               placeholder="Szukaj w treści, podmiocie lub domenie"
               aria-label="Szukaj"
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(0);
-              }}
+              onChange={(e) => setSearch(e.target.value)}
             />
             <select className="input" value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sortowanie">
               <option value="score_desc">Sortuj: Ryzyko malejąco</option>
@@ -342,7 +361,7 @@ export default function Findings() {
                   <span className="col-mod">
                     <ModuleBadge module={f.module} />
                   </span>
-                  <Link to={`/findings/${f.id}`} className="col-grow">
+                  <Link to={`/findings/${f.id}`} state={{ listSearch: searchParams.toString() }} className="col-grow">
                     <p className="cell-title">{f.title ?? `Finding #${f.id}`}</p>
                     <p className="cell-sub">{f.domain ?? "-"}</p>
                   </Link>
